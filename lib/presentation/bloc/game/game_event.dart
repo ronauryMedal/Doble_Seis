@@ -22,14 +22,40 @@ final class GameConfigured extends GameEvent {
     required this.winScore,
     required this.mode,
     required this.participants,
+    this.connectionMode = LiveRoomConnectionMode.offline,
   });
 
   final int winScore;
   final GameMode mode;
   final List<ParticipantSetup> participants;
+  final LiveRoomConnectionMode connectionMode;
 
   @override
-  List<Object?> get props => [winScore, mode, participants];
+  List<Object?> get props => [winScore, mode, participants, connectionMode];
+}
+
+/// Espectador conectado a una sala WiFi / nube.
+final class LiveRoomSpectatorStarted extends GameEvent {
+  const LiveRoomSpectatorStarted({
+    required this.session,
+    required this.info,
+  });
+
+  final GameSession session;
+  final LiveRoomConnectionInfo info;
+
+  @override
+  List<Object?> get props => [session, info];
+}
+
+/// Actualización remota recibida por el espectador.
+final class LiveRoomSessionSynced extends GameEvent {
+  const LiveRoomSessionSynced(this.session);
+
+  final GameSession session;
+
+  @override
+  List<Object?> get props => [session];
 }
 
 /// Continúa la partida guardada en Hive.
@@ -69,6 +95,11 @@ final class SpecialEventMarked extends GameEvent {
 
 final class GameReset extends GameEvent {
   const GameReset();
+}
+
+/// Revancha con los mismos jugadores — reinicia puntajes.
+final class GameRematch extends GameEvent {
+  const GameRematch();
 }
 
 final class ShotClockToggled extends GameEvent {

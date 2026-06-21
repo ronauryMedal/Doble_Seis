@@ -8,6 +8,7 @@ class ScoreEvent {
     required this.timestamp,
     this.specialEvent,
     this.note,
+    this.isGameVictory = false,
   });
 
   final String teamId;
@@ -15,6 +16,7 @@ class ScoreEvent {
   final DateTime timestamp;
   final SpecialEventType? specialEvent;
   final String? note;
+  final bool isGameVictory;
 
   Map<String, dynamic> toMap() => {
         'teamId': teamId,
@@ -22,6 +24,7 @@ class ScoreEvent {
         'timestamp': timestamp.toIso8601String(),
         'specialEvent': specialEvent?.name,
         'note': note,
+        'isGameVictory': isGameVictory,
       };
 
   factory ScoreEvent.fromMap(Map<dynamic, dynamic> map) => ScoreEvent(
@@ -32,6 +35,7 @@ class ScoreEvent {
             ? _parseSpecialEvent(map['specialEvent'] as String)
             : null,
         note: map['note'] as String?,
+        isGameVictory: map['isGameVictory'] as bool? ?? false,
       );
 }
 

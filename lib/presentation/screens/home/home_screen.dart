@@ -9,14 +9,23 @@ import '../../../core/utils/haptic_utils.dart';
 import '../../../data/models/participant_setup.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../domain/enums/game_mode.dart';
+import '../../../domain/enums/live_room_connection_mode.dart';
+import '../../../features/live_room/live_room_manager.dart';
 import '../../bloc/game/game_bloc.dart';
+import '../history/game_history_screen.dart';
+import '../live_room/join_room_screen.dart';
 import '../scoreboard/scoreboard_screen.dart';
 
 /// Pantalla de configuración: modo, puntaje, jugadores y nombres.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.repository});
+  const HomeScreen({
+    super.key,
+    required this.repository,
+    required this.liveRoomManager,
+  });
 
   final GameRepository repository;
+  final LiveRoomManager liveRoomManager;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -24,6 +33,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   GameMode _mode = GameMode.teamVsTeam;
+  LiveRoomConnectionMode _connectionMode = LiveRoomConnectionMode.offline;
   int _playerCount = AppConstants.defaultIndividualPlayers;
   int _playersPerTeam = AppConstants.defaultPlayersPerTeam;
   int _selectedWinScore = AppConstants.defaultWinScore;
@@ -173,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
         winScore: _selectedWinScore,
         mode: _mode,
         participants: _buildParticipants(),
+        connectionMode: _connectionMode,
       ));
     }
 
@@ -183,6 +194,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         )
         .then((_) => _checkSavedGame());
+  }
+
+  void _openSpectatorJoin() {
+    HapticUtils.lightTap();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => JoinRoomScreen(
+          liveRoomManager: widget.liveRoomManager,
+        ),
+      ),
+    );
   }
 
   @override
@@ -223,7 +245,42 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
+              _SpectatorJoinCard(onTap: _openSpectatorJoin),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => GameHistoryScreen(
+                        repository: widget.repository,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.emoji_events_outlined, size: 18),
+                label: const Text('Partidas ganadas'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.neonAmber,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'o crea una partida',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
+                ],
+              ),
+              const SizedBox(height: 20),
               const _SectionTitle(title: 'Modo de juego'),
               const SizedBox(height: 12),
               _ModeSelector(selected: _mode, onSelected: _setMode),
@@ -318,6 +375,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
               ],
               const SizedBox(height: 28),
+              const _SectionTitle(title: 'Compartir marcador'),
+              const SizedBox(height: 12),
+              _ConnectionModeSelector(
+                selected: _connectionMode,
+                onSelected: (mode) {
+                  if (!mode.isAvailable) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sala en la nube — próximamente.'),
+                        backgroundColor: AppColors.neonRose,
+                      ),
+                    );
+                    return;
+                  }
+                  HapticUtils.selection();
+                  setState(() => _connectionMode = mode);
+                },
+              ),
+              if (_connectionMode == LiveRoomConnectionMode.localWifi) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Tú anotas; los demás escanean tu QR en la misma WiFi.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                ),
+              ],
+              const SizedBox(height: 28),
               FilledButton(
                 onPressed: () => _startGame(restore: false),
                 style: FilledButton.styleFrom(
@@ -350,6 +436,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Text('Continuar partida'),
                 ),
               ],
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _openSpectatorJoin,
+                icon: const Icon(Icons.visibility_rounded, size: 18),
+                label: const Text('Unirme como espectador'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.neonAmber,
+                  side: BorderSide(
+                    color: AppColors.neonAmber.withValues(alpha: 0.45),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -453,6 +555,76 @@ class _NameField extends StatelessWidget {
   }
 }
 
+class _SpectatorJoinCard extends StatelessWidget {
+  const _SpectatorJoinCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.neonAmber.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.neonAmber.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.neonAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: AppColors.neonAmber,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Unirme como espectador',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: 16,
+                            color: AppColors.neonAmber,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Escanea el QR de quien lleva el marcador',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: AppColors.neonAmber.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title});
 
@@ -466,6 +638,73 @@ class _SectionTitle extends StatelessWidget {
             fontSize: 16,
             color: AppColors.textSecondary,
           ),
+    );
+  }
+}
+
+class _ConnectionModeSelector extends StatelessWidget {
+  const _ConnectionModeSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final LiveRoomConnectionMode selected;
+  final ValueChanged<LiveRoomConnectionMode> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: LiveRoomConnectionMode.values.map((mode) {
+        final isSelected = mode == selected;
+        final isSoon = !mode.isAvailable;
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: GestureDetector(
+              onTap: () => onSelected(mode),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.neonCyan.withValues(alpha: 0.15)
+                      : AppColors.nightCard,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.neonCyan.withValues(alpha: 0.6)
+                        : Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      mode.label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? AppColors.neonCyan
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                    if (isSoon)
+                      Text(
+                        'Pronto',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textMuted.withValues(alpha: 0.8),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'app.dart';
 import 'data/repositories/game_repository.dart';
+import 'features/live_room/live_room_manager.dart';
 
 /// Punto de entrada de la app.
 ///
@@ -23,5 +24,10 @@ Future<void> main() async {
   final repository = GameRepository();
   await repository.init();
 
-  runApp(DominoApp(repository: repository));
+  final liveRoomManager = LiveRoomManager();
+
+  runApp(DominoApp(
+    repository: repository,
+    liveRoomManager: liveRoomManager,
+  ));
 }

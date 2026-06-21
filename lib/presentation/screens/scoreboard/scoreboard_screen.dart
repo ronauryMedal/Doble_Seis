@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,10 +7,13 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/player_colors.dart';
 import '../../../domain/enums/game_mode.dart';
+import '../../../data/models/live_room_connection_info.dart';
 import '../../../data/models/game_session.dart';
 import '../../../features/vision/vision_scan_placeholder.dart';
 import '../../bloc/game/game_bloc.dart';
 import '../../widgets/celebration_overlay.dart';
+import '../../widgets/game_log_sheet.dart';
+import '../../widgets/live_room_qr_sheet.dart';
 import '../../widgets/player_score_panel.dart';
 import '../../widgets/shot_clock.dart';
 import '../../widgets/smart_keyboard.dart';
@@ -28,101 +32,154 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<GameBloc, GameState>(
-      builder: (context, state) {
-        final session = state.session;
-        final bloc = context.read<GameBloc>();
-        final gameOver = session.isGameOver;
-        final participants = session.participants;
-        final highest = session.highestScore;
-        final multi = participants.length > 2;
-
-        _selectedPlayerId ??= participants.first.id;
-        if (!participants.any((p) => p.id == _selectedPlayerId)) {
-          _selectedPlayerId = participants.first.id;
-        }
-
-        return Scaffold(
-          body: Stack(
-            children: [
-              SafeArea(
-                child: Column(
-                  children: [
-                    _CompactToolbar(
-                      winScore: session.winScore,
-                      mode: session.mode,
-                      seconds: state.shotClockSeconds,
-                      isShotClockActive: state.isShotClockActive,
-                      onToggleClock: () => bloc.add(const ShotClockToggled()),
-                      onReset: () {
-                        bloc.add(const GameReset());
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                    if (multi)
-                      SizedBox(
-                        height: 28,
-                        child: _PlayerSelector(
-                          participants: participants,
-                          selectedId: _selectedPlayerId!,
-                          onSelected: (id) =>
-                              setState(() => _selectedPlayerId = id),
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: SpecialEventChips(
-                        selectedTeamId: _selectedPlayerId!,
-                        enabled: !gameOver,
-                        compact: true,
-                        onEvent: (teamId, event) => bloc.add(
-                          SpecialEventMarked(teamId: teamId, event: event),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: _FlexScoreGrid(
-                        participants: participants,
-                        winScore: session.winScore,
-                        highestScore: highest,
-                        selectedId: _selectedPlayerId!,
-                        gameOver: gameOver,
-                        onSelect: (id) =>
-                            setState(() => _selectedPlayerId = id),
-                        onSwipeScore: (playerId) => bloc.add(ScoreAdded(
-                          teamId: playerId,
-                          points: AppConstants.quickScore,
-                        )),
-                      ),
-                    ),
-                    SmartKeyboard(
-                      compact: true,
-                      enabled: !gameOver,
-                      onQuickScore: (points) => bloc.add(ScoreAdded(
-                        teamId: _selectedPlayerId!,
-                        points: points,
-                      )),
-                      onScoreSubmitted: (points) => bloc.add(ScoreAdded(
-                        teamId: _selectedPlayerId!,
-                        points: points,
-                      )),
-                    ),
-                  ],
-                ),
-              ),
-              if (state.activeCelebration != null)
-                CelebrationOverlay(
-                  type: state.activeCelebration!,
-                  onDismiss: () => bloc.add(const CelebrationDismissed()),
-                )
-                    .animate()
-                    .fadeIn(duration: 300.ms)
-                    .then()
-                    .shake(duration: 500.ms, hz: 2),
-            ],
+    return BlocListener<GameBloc, GameState>(
+      listenWhen: (prev, curr) =>
+          curr.liveRoomError != null && prev.liveRoomError != curr.liveRoomError,
+      listener: (context, state) {
+        final error = state.liveRoomError;
+        if (error == null) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sala WiFi: $error'),
+            backgroundColor: AppColors.neonRose,
           ),
         );
       },
+      child: BlocListener<GameBloc, GameState>(
+        listenWhen: (prev, curr) =>
+            curr.isLiveHost &&
+            curr.liveRoomInfo != null &&
+            prev.liveRoomInfo == null,
+        listener: (context, state) {
+          showLiveRoomQrSheet(context, state.liveRoomInfo!);
+        },
+        child: BlocBuilder<GameBloc, GameState>(
+        builder: (context, state) {
+          final session = state.session;
+          final bloc = context.read<GameBloc>();
+          final gameOver = session.isGameOver;
+          final participants = session.participants;
+          final highest = session.highestScore;
+          final multi = participants.length > 2;
+          final isSpectator = state.isSpectator;
+          final canEdit = !gameOver && !isSpectator;
+
+          _selectedPlayerId ??= participants.first.id;
+          if (!participants.any((p) => p.id == _selectedPlayerId)) {
+            _selectedPlayerId = participants.first.id;
+          }
+
+          return Scaffold(
+            body: Stack(
+              children: [
+                SafeArea(
+                  child: Column(
+                    children: [
+                      _CompactToolbar(
+                        winScore: session.winScore,
+                        mode: session.mode,
+                        seconds: state.shotClockSeconds,
+                        isShotClockActive: state.isShotClockActive,
+                        isSpectator: isSpectator,
+                        onToggleClock: isSpectator
+                            ? null
+                            : () => bloc.add(const ShotClockToggled()),
+                        onOpenLog: () => showGameLogSheet(context, session),
+                        onReset: () {
+                          bloc.add(const GameReset());
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                      if (state.isLiveHost && state.liveRoomInfo != null)
+                        _LiveRoomHostBanner(info: state.liveRoomInfo!),
+                      if (isSpectator)
+                        const _LiveRoomSpectatorBanner(),
+                      if (multi)
+                        SizedBox(
+                          height: 28,
+                          child: _PlayerSelector(
+                            participants: participants,
+                            selectedId: _selectedPlayerId!,
+                            onSelected: (id) =>
+                                setState(() => _selectedPlayerId = id),
+                          ),
+                        ),
+                      if (!isSpectator)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: SpecialEventChips(
+                            selectedTeamId: _selectedPlayerId!,
+                            enabled: canEdit,
+                            compact: true,
+                            pendingEvent: state.pendingSpecialEvent,
+                            pendingTeamId: state.pendingSpecialEventTeamId,
+                            onEvent: (teamId, event) => bloc.add(
+                              SpecialEventMarked(teamId: teamId, event: event),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: _FlexScoreGrid(
+                          participants: participants,
+                          winScore: session.winScore,
+                          highestScore: highest,
+                          selectedId: _selectedPlayerId!,
+                          gameOver: gameOver,
+                          readOnly: isSpectator,
+                          onSelect: (id) =>
+                              setState(() => _selectedPlayerId = id),
+                          onSwipeScore: canEdit
+                              ? (playerId) => bloc.add(ScoreAdded(
+                                    teamId: playerId,
+                                    points: AppConstants.quickScore,
+                                  ))
+                              : null,
+                        ),
+                      ),
+                      if (!isSpectator)
+                        SmartKeyboard(
+                          compact: true,
+                          enabled: canEdit,
+                          onQuickScore: (points) => bloc.add(ScoreAdded(
+                            teamId: _selectedPlayerId!,
+                            points: points,
+                          )),
+                          onScoreSubmitted: (points) => bloc.add(ScoreAdded(
+                            teamId: _selectedPlayerId!,
+                            points: points,
+                          )),
+                        ),
+                    ],
+                  ),
+                ),
+                if (state.activeCelebration != null)
+                  CelebrationOverlay(
+                    type: state.activeCelebration!,
+                    winnerName: session.winner?.name,
+                    onDismiss: () => bloc.add(const CelebrationDismissed()),
+                    onRematch: state.activeCelebration == CelebrationType.gameWon &&
+                            !isSpectator
+                        ? () => bloc.add(const GameRematch())
+                        : null,
+                    onChangePlayers: state.activeCelebration ==
+                                CelebrationType.gameWon &&
+                            !isSpectator
+                        ? () {
+                            bloc.add(const GameReset());
+                            Navigator.of(context).pop();
+                          }
+                        : null,
+                  )
+                      .animate()
+                      .fadeIn(duration: 300.ms)
+                      .then()
+                      .shake(duration: 500.ms, hz: 2),
+              ],
+            ),
+          );
+        },
+      ),
+      ),
     );
   }
 }
@@ -133,15 +190,19 @@ class _CompactToolbar extends StatelessWidget {
     required this.mode,
     required this.seconds,
     required this.isShotClockActive,
-    required this.onToggleClock,
     required this.onReset,
+    required this.onOpenLog,
+    this.isSpectator = false,
+    this.onToggleClock,
   });
 
   final int winScore;
   final GameMode mode;
   final int seconds;
   final bool isShotClockActive;
-  final VoidCallback onToggleClock;
+  final bool isSpectator;
+  final VoidCallback? onToggleClock;
+  final VoidCallback onOpenLog;
   final VoidCallback onReset;
 
   @override
@@ -177,15 +238,29 @@ class _CompactToolbar extends StatelessWidget {
             compact: true,
             seconds: seconds,
             isActive: isShotClockActive,
-            onToggle: onToggleClock,
+            onToggle: onToggleClock ?? () {},
           ),
-          const SizedBox(width: 2),
-          const VisionScanIconButton(),
+          if (!isSpectator) ...[
+            const SizedBox(width: 2),
+            const VisionScanIconButton(),
+          ],
+          IconButton(
+            onPressed: onOpenLog,
+            icon: const Icon(Icons.history_rounded, size: 18),
+            color: AppColors.textSecondary,
+            tooltip: 'Bitácora',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
           IconButton(
             onPressed: onReset,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
+            icon: Icon(
+              isSpectator ? Icons.close_rounded : Icons.refresh_rounded,
+              size: 18,
+            ),
             color: AppColors.textSecondary,
-            tooltip: 'Nueva partida',
+            tooltip: isSpectator ? 'Salir' : 'Nueva partida',
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -249,6 +324,85 @@ class _PlayerSelector extends StatelessWidget {
   }
 }
 
+class _LiveRoomHostBanner extends StatelessWidget {
+  const _LiveRoomHostBanner({required this.info});
+
+  final LiveRoomConnectionInfo info;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
+      child: Material(
+        color: AppColors.neonCyan.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: () => showLiveRoomQrSheet(context, info),
+          onLongPress: () {
+            Clipboard.setData(ClipboardData(text: info.shareLine));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('IP y código copiados'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.qr_code_2_rounded, size: 16, color: AppColors.neonCyan),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Toca para ver QR · ${info.roomCode}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: AppColors.neonCyan),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.neonCyan),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveRoomSpectatorBanner extends StatelessWidget {
+  const _LiveRoomSpectatorBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.neonAmber.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.neonAmber.withValues(alpha: 0.25)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.visibility_rounded, size: 16, color: AppColors.neonAmber),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Espectador · solo lectura',
+                style: TextStyle(fontSize: 11, color: AppColors.neonAmber),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FlexScoreGrid extends StatelessWidget {
   const _FlexScoreGrid({
     required this.participants,
@@ -257,7 +411,8 @@ class _FlexScoreGrid extends StatelessWidget {
     required this.selectedId,
     required this.gameOver,
     required this.onSelect,
-    required this.onSwipeScore,
+    this.readOnly = false,
+    this.onSwipeScore,
   });
 
   final List<PlayerScore> participants;
@@ -265,8 +420,9 @@ class _FlexScoreGrid extends StatelessWidget {
   final int highestScore;
   final String selectedId;
   final bool gameOver;
+  final bool readOnly;
   final ValueChanged<String> onSelect;
-  final ValueChanged<String> onSwipeScore;
+  final ValueChanged<String>? onSwipeScore;
 
   int get _columns {
     final n = participants.length;
@@ -285,7 +441,7 @@ class _FlexScoreGrid extends StatelessWidget {
       winScore: winScore,
       emphasis: emphasis,
       onTap: () => onSelect(player.id),
-      onSwipeScore: gameOver ? null : () => onSwipeScore(player.id),
+      onSwipeScore: readOnly || gameOver ? null : () => onSwipeScore?.call(player.id),
     );
   }
 

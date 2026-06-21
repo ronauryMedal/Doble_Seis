@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../models/game_history_entry.dart';
 import '../models/game_session.dart';
 
 /// Capa de datos: abstrae Hive para que el BLoC no sepa de la BD.
@@ -37,4 +38,28 @@ class GameRepository {
   }
 
   bool get hasSavedSession => loadCurrentSession() != null;
+
+  Future<void> saveHistoryEntry(GameHistoryEntry entry) async {
+    await _box?.put('history_${entry.id}', entry.toMap());
+    final ids = List<String>.from(
+      (_box?.get(AppConstants.hiveHistoryIndexKey) as List?) ?? [],
+    );
+    ids.remove(entry.id);
+    ids.insert(0, entry.id);
+    await _box?.put(AppConstants.hiveHistoryIndexKey, ids);
+  }
+
+  List<GameHistoryEntry> loadHistory() {
+    final ids = List<String>.from(
+      (_box?.get(AppConstants.hiveHistoryIndexKey) as List?) ?? [],
+    );
+    return ids
+        .map((id) {
+          final data = _box?.get('history_$id');
+          if (data == null) return null;
+          return GameHistoryEntry.fromMap(Map<dynamic, dynamic>.from(data as Map));
+        })
+        .whereType<GameHistoryEntry>()
+        .toList();
+  }
 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/enums/special_event_type.dart';
 
-/// Chips para marcar Capicúa o Tranque.
+/// Chips Capicúa / Tranque — activar antes de ingresar puntos.
 class SpecialEventChips extends StatelessWidget {
   const SpecialEventChips({
     super.key,
@@ -11,12 +11,19 @@ class SpecialEventChips extends StatelessWidget {
     required this.onEvent,
     this.enabled = true,
     this.compact = false,
+    this.pendingEvent,
+    this.pendingTeamId,
   });
 
   final String selectedTeamId;
   final void Function(String teamId, SpecialEventType event) onEvent;
   final bool enabled;
   final bool compact;
+  final SpecialEventType? pendingEvent;
+  final String? pendingTeamId;
+
+  bool _isArmed(SpecialEventType type) =>
+      pendingEvent == type && pendingTeamId == selectedTeamId;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +37,7 @@ class SpecialEventChips extends StatelessWidget {
               color: AppColors.capicua,
               icon: Icons.auto_awesome,
               compact: compact,
+              armed: _isArmed(SpecialEventType.capicua),
               onTap: enabled
                   ? () => onEvent(selectedTeamId, SpecialEventType.capicua)
                   : null,
@@ -42,6 +50,7 @@ class SpecialEventChips extends StatelessWidget {
               color: AppColors.tranque,
               icon: Icons.block,
               compact: compact,
+              armed: _isArmed(SpecialEventType.tranque),
               onTap: enabled
                   ? () => onEvent(selectedTeamId, SpecialEventType.tranque)
                   : null,
@@ -60,6 +69,7 @@ class _EventChip extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.compact = false,
+    this.armed = false,
   });
 
   final String label;
@@ -67,11 +77,12 @@ class _EventChip extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final bool compact;
+  final bool armed;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withValues(alpha: 0.12),
+      color: color.withValues(alpha: armed ? 0.28 : 0.12),
       borderRadius: BorderRadius.circular(compact ? 10 : 14),
       child: InkWell(
         onTap: onTap,
@@ -80,19 +91,25 @@ class _EventChip extends StatelessWidget {
           padding: EdgeInsets.symmetric(vertical: compact ? 6 : 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(compact ? 10 : 14),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: color.withValues(alpha: armed ? 0.75 : 0.3),
+              width: armed ? 2 : 1,
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: compact ? 14 : 16, color: color),
               SizedBox(width: compact ? 4 : 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: compact ? 11 : 13,
-                  fontWeight: FontWeight.w600,
-                  color: color,
+              Flexible(
+                child: Text(
+                  armed ? '$label ✓' : label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: compact ? 11 : 13,
+                    fontWeight: armed ? FontWeight.w700 : FontWeight.w600,
+                    color: color,
+                  ),
                 ),
               ),
             ],

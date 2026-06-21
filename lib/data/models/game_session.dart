@@ -172,6 +172,21 @@ class GameSession {
     );
   }
 
+  /// Revancha: mismos jugadores y reglas, puntajes en cero.
+  factory GameSession.rematchFrom(GameSession previous) {
+    final now = DateTime.now();
+    return GameSession(
+      id: now.millisecondsSinceEpoch.toString(),
+      mode: previous.mode,
+      winScore: previous.winScore,
+      createdAt: now,
+      events: const [],
+      participants: previous.participants
+          .map((p) => p.copyWith(score: 0))
+          .toList(growable: false),
+    );
+  }
+
   static String _defaultName(GameMode mode, int index) {
     if (mode == GameMode.teamVsTeam) {
       return index == 0

@@ -5,12 +5,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/haptic_utils.dart';
+import '../../../data/models/game_history_entry.dart';
 import '../../../data/models/game_session.dart';
 import '../../../data/models/participant_setup.dart';
 import '../../../data/models/score_event.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../domain/enums/game_mode.dart';
+import '../../../domain/enums/live_room_connection_mode.dart';
+import '../../../domain/enums/room_role.dart';
 import '../../../domain/enums/special_event_type.dart';
+import '../../../data/models/live_room_connection_info.dart';
+import '../../../features/live_room/live_room_manager.dart';
 
 part 'game_event.dart';
 part 'game_state.dart';
@@ -20,15 +25,21 @@ part 'game_state.dart';
 /// Separa la lógica de negocio de la UI. La pantalla solo "escucha" el estado
 /// y "envía" eventos; no calcula puntajes ni persiste datos.
 class GameBloc extends Bloc<GameEvent, GameState> {
-  GameBloc({required GameRepository repository})
-      : _repository = repository,
+  GameBloc({
+    required GameRepository repository,
+    LiveRoomManager? liveRoomManager,
+  })  : _repository = repository,
+        _liveRoom = liveRoomManager ?? LiveRoomManager(),
         super(GameState.initial()) {
     on<GameStarted>(_onStarted);
     on<GameConfigured>(_onConfigured);
     on<GameRestored>(_onRestored);
+    on<LiveRoomSpectatorStarted>(_onLiveRoomSpectatorStarted);
+    on<LiveRoomSessionSynced>(_onLiveRoomSessionSynced);
     on<ScoreAdded>(_onScoreAdded);
     on<SpecialEventMarked>(_onSpecialEventMarked);
     on<GameReset>(_onReset);
+    on<GameRematch>(_onRematch);
     on<ShotClockToggled>(_onShotClockToggled);
     on<ShotClockTick>(_onShotClockTick);
     on<ShotClockReset>(_onShotClockReset);
@@ -36,7 +47,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   }
 
   final GameRepository _repository;
+  final LiveRoomManager _liveRoom;
   Timer? _shotClockTimer;
+  StreamSubscription<GameSession>? _liveRoomSubscription;
 
   Future<void> _onStarted(GameStarted event, Emitter<GameState> emit) async {
     final saved = _repository.loadCurrentSession();
@@ -79,6 +92,57 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     await _repository.saveSession(session);
     emit(GameState(session: session));
     _autoStartGameTimer(emit, elapsedSeconds: 0);
+
+    LiveRoomConnectionInfo? roomInfo;
+    String? roomError;
+    if (event.connectionMode != LiveRoomConnectionMode.offline) {
+      try {
+        final service = _liveRoom.serviceFor(event.connectionMode);
+        roomInfo = await service.createRoom(initialSession: session);
+      } on Exception catch (e) {
+        roomError = e.toString();
+      }
+    }
+
+    emit(state.copyWith(
+      connectionMode: roomInfo != null
+          ? event.connectionMode
+          : LiveRoomConnectionMode.offline,
+      liveRoomInfo: roomInfo,
+      liveRoomError: roomError,
+    ));
+  }
+
+  Future<void> _onLiveRoomSpectatorStarted(
+    LiveRoomSpectatorStarted event,
+    Emitter<GameState> emit,
+  ) async {
+    _liveRoomSubscription?.cancel();
+    await _repository.saveSession(event.session);
+
+    final elapsed = _elapsedFromSession(event.session);
+    emit(GameState(
+      session: event.session,
+      connectionMode: event.info.mode,
+      liveRoomInfo: event.info,
+      shotClockSeconds: elapsed,
+      isShotClockActive: true,
+    ));
+    _startGameTimer();
+
+    _liveRoomSubscription =
+        _liveRoom.activeService?.watchSession().listen((session) {
+      add(LiveRoomSessionSynced(session));
+    });
+  }
+
+  Future<void> _onLiveRoomSessionSynced(
+    LiveRoomSessionSynced event,
+    Emitter<GameState> emit,
+  ) async {
+    if (!state.isSpectator) return;
+    await _repository.saveSession(event.session);
+    emit(state.copyWith(session: event.session));
   }
 
   Future<void> _onRestored(
@@ -97,51 +161,110 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   }
 
   Future<void> _onScoreAdded(ScoreAdded event, Emitter<GameState> emit) async {
+    if (event.points <= 0) return;
+
     final session = state.session;
     final now = DateTime.now();
+
+    var specialEvent = event.specialEvent;
+    final usedPending = specialEvent == null &&
+        state.pendingSpecialEvent != null &&
+        state.pendingSpecialEventTeamId == event.teamId;
+    if (usedPending) {
+      specialEvent = state.pendingSpecialEvent;
+    }
+
+    final updated = _applyScore(session, event.teamId, event.points);
+    final gameOver = updated.isGameOver;
+
     final scoreEvent = ScoreEvent(
       teamId: event.teamId,
       points: event.points,
       timestamp: now,
-      specialEvent: event.specialEvent,
+      specialEvent: specialEvent,
+      isGameVictory: gameOver,
     );
 
-    final updated = _applyScore(session, event.teamId, event.points);
     final newSession = updated.copyWith(
       events: [...session.events, scoreEvent],
     );
+
+    if (gameOver) {
+      await _saveToHistory(newSession);
+    }
 
     await _repository.saveSession(newSession);
     await HapticUtils.mediumTap();
 
     CelebrationType? celebration;
-    if (event.specialEvent == SpecialEventType.capicua) {
+    if (specialEvent == SpecialEventType.capicua) {
       celebration = CelebrationType.capicua;
       await HapticUtils.celebration();
-    } else if (event.specialEvent == SpecialEventType.tranque) {
+    } else if (specialEvent == SpecialEventType.tranque) {
       celebration = CelebrationType.tranque;
       await HapticUtils.celebration();
-    } else if (newSession.isGameOver) {
+    } else if (gameOver) {
       celebration = CelebrationType.gameWon;
       await HapticUtils.celebration();
     }
+
+    final isLiveHost = state.isLiveHost;
 
     emit(state.copyWith(
       session: newSession,
       activeCelebration: celebration,
       clearCelebration: celebration == null,
       clearPendingPoints: true,
+      clearPendingSpecialEvent: usedPending,
     ));
+
+    if (isLiveHost && _liveRoom.activeService != null) {
+      try {
+        await _liveRoom.activeService!.pushScoreUpdate(
+          session: newSession,
+          role: RoomRole.leader,
+        );
+      } on Exception {
+        // La partida local sigue; solo falla el broadcast WiFi.
+      }
+    }
+  }
+
+  Future<void> _saveToHistory(GameSession session) async {
+    final winner = session.winner;
+    if (winner == null) return;
+
+    final entry = GameHistoryEntry(
+      id: '${session.id}_won_${DateTime.now().millisecondsSinceEpoch}',
+      finishedAt: DateTime.now(),
+      winnerName: winner.name,
+      winnerId: winner.id,
+      winScore: session.winScore,
+      mode: session.mode,
+      events: session.events,
+      finalScores: session.participants,
+      durationSeconds: state.shotClockSeconds,
+    );
+    await _repository.saveHistoryEntry(entry);
   }
 
   Future<void> _onSpecialEventMarked(
     SpecialEventMarked event,
     Emitter<GameState> emit,
   ) async {
-    add(ScoreAdded(
-      teamId: event.teamId,
-      points: 0,
-      specialEvent: event.event,
+    await HapticUtils.selection();
+
+    final samePending = state.pendingSpecialEvent == event.event &&
+        state.pendingSpecialEventTeamId == event.teamId;
+
+    if (samePending) {
+      emit(state.copyWith(clearPendingSpecialEvent: true));
+      return;
+    }
+
+    emit(state.copyWith(
+      pendingSpecialEvent: event.event,
+      pendingSpecialEventTeamId: event.teamId,
     ));
   }
 
@@ -157,8 +280,39 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
   Future<void> _onReset(GameReset event, Emitter<GameState> emit) async {
     _stopGameTimer();
+    _liveRoomSubscription?.cancel();
+    await _liveRoom.disconnect();
     await _repository.clearCurrent();
     emit(GameState.initial());
+  }
+
+  Future<void> _onRematch(GameRematch event, Emitter<GameState> emit) async {
+    _stopGameTimer();
+
+    final rematch = GameSession.rematchFrom(state.session);
+    final isLiveHost = state.isLiveHost;
+
+    await _repository.saveSession(rematch);
+
+    emit(state.copyWith(
+      session: rematch,
+      clearCelebration: true,
+      clearPendingSpecialEvent: true,
+      shotClockSeconds: AppConstants.initialGameTimerSeconds,
+      isShotClockActive: true,
+    ));
+    _startGameTimer();
+
+    if (isLiveHost && _liveRoom.activeService != null) {
+      try {
+        await _liveRoom.activeService!.pushScoreUpdate(
+          session: rematch,
+          role: RoomRole.leader,
+        );
+      } on Exception {
+        // La revancha local sigue aunque falle el broadcast WiFi.
+      }
+    }
   }
 
   void _onShotClockToggled(
@@ -220,6 +374,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   @override
   Future<void> close() {
     _stopGameTimer();
+    _liveRoomSubscription?.cancel();
+    _liveRoom.disconnect();
     return super.close();
   }
 }

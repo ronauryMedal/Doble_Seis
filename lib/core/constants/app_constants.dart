@@ -7,6 +7,7 @@ class AppConstants {
 
   static const String appName = 'Doble Seis';
   static const String hiveBoxName = 'domino_games';
+  static const String hiveHistoryIndexKey = 'game_history_index';
 
   /// Puntaje rápido del dominó (botón destacado en el teclado).
   static const int quickScore = 30;
@@ -32,4 +33,9 @@ class AppConstants {
 
   /// Duración inicial del cronómetro de partida (cuenta hacia arriba).
   static const int initialGameTimerSeconds = 0;
+
+  /// Sala WiFi local.
+  static const int liveRoomPort = 8765;
+  static const int liveRoomCodeLength = 6;
+  static const Duration liveRoomConnectTimeout = Duration(seconds: 12);
 }
