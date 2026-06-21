@@ -5,7 +5,7 @@ import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/game_repository.dart';
 import 'presentation/bloc/game/game_bloc.dart';
-import 'presentation/screens/scoreboard/scoreboard_screen.dart';
+import 'presentation/screens/home/home_screen.dart';
 
 /// Widget raíz de la aplicación.
 ///
@@ -19,14 +19,14 @@ class DominoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => GameBloc(repository: repository)..add(const GameStarted()),
+      create: (_) => GameBloc(repository: repository),
       child: MaterialApp(
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.dark,
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.dark,
-        home: const ScoreboardScreen(),
+        home: HomeScreen(repository: repository),
       ),
     );
   }

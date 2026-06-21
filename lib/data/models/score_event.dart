@@ -29,8 +29,13 @@ class ScoreEvent {
         points: map['points'] as int,
         timestamp: DateTime.parse(map['timestamp'] as String),
         specialEvent: map['specialEvent'] != null
-            ? SpecialEventType.values.byName(map['specialEvent'] as String)
+            ? _parseSpecialEvent(map['specialEvent'] as String)
             : null,
         note: map['note'] as String?,
       );
+}
+
+SpecialEventType _parseSpecialEvent(String name) {
+  if (name == 'chucho') return SpecialEventType.tranque;
+  return SpecialEventType.values.byName(name);
 }

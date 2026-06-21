@@ -1,39 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Cronómetro de turno estilo ajedrez (Shot Clock).
+/// Cronómetro de duración de la partida (cuenta hacia arriba).
 class ShotClock extends StatelessWidget {
   const ShotClock({
     super.key,
     required this.seconds,
     required this.isActive,
     required this.onToggle,
+    this.compact = false,
   });
 
   final int seconds;
   final bool isActive;
   final VoidCallback onToggle;
+  final bool compact;
+
+  String _formatDuration(int totalSeconds) {
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final secs = totalSeconds % 60;
+
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:'
+          '${minutes.toString().padLeft(2, '0')}:'
+          '${secs.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:'
+        '${secs.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isWarning = seconds <= AppConstants.shotClockWarningSeconds;
-    final color = !isActive
-        ? AppColors.textMuted
-        : (isWarning ? AppColors.neonRose : AppColors.neonCyan);
-
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final secs = (seconds % 60).toString().padLeft(2, '0');
+    final color = isActive ? AppColors.neonCyan : AppColors.textMuted;
 
     return GestureDetector(
       onTap: onToggle,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 20,
+          vertical: compact ? 6 : 10,
+        ),
         decoration: BoxDecoration(
           color: AppColors.nightCard,
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(compact ? 12 : 30),
           border: Border.all(
             color: color.withValues(alpha: isActive ? 0.5 : 0.15),
           ),
@@ -43,25 +54,23 @@ class ShotClock extends StatelessWidget {
           children: [
             Icon(
               isActive ? Icons.timer : Icons.timer_off_outlined,
-              size: 18,
+              size: compact ? 14 : 18,
               color: color,
             ),
-            const SizedBox(width: 8),
+            if (!compact) const SizedBox(width: 8),
             Text(
-              '$minutes:$secs',
+              _formatDuration(seconds),
               style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 2,
+                fontSize: compact ? 14 : 22,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 1,
                 color: color,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
         ),
-      )
-          .animate(target: isWarning && isActive ? 1 : 0)
-          .shake(duration: 600.ms, hz: 3),
+      ),
     );
   }
 }

@@ -6,8 +6,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/haptic_utils.dart';
 import '../../../data/models/game_session.dart';
+import '../../../data/models/participant_setup.dart';
 import '../../../data/models/score_event.dart';
 import '../../../data/repositories/game_repository.dart';
+import '../../../domain/enums/game_mode.dart';
 import '../../../domain/enums/special_event_type.dart';
 
 part 'game_event.dart';
@@ -22,6 +24,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       : _repository = repository,
         super(GameState.initial()) {
     on<GameStarted>(_onStarted);
+    on<GameConfigured>(_onConfigured);
+    on<GameRestored>(_onRestored);
     on<ScoreAdded>(_onScoreAdded);
     on<SpecialEventMarked>(_onSpecialEventMarked);
     on<GameReset>(_onReset);
@@ -37,14 +41,59 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   Future<void> _onStarted(GameStarted event, Emitter<GameState> emit) async {
     final saved = _repository.loadCurrentSession();
     if (saved != null) {
-      emit(state.copyWith(session: saved));
+      final elapsed = _elapsedFromSession(saved);
+      emit(state.copyWith(
+        session: saved,
+        shotClockSeconds: elapsed,
+        isShotClockActive: true,
+      ));
+      _startGameTimer();
       return;
     }
     final session = GameSession.newGame(
+      mode: GameMode.teamVsTeam,
       winScore: event.winScore ?? AppConstants.defaultWinScore,
+      participants: const [
+        ParticipantSetup(name: 'Equipo A'),
+        ParticipantSetup(name: 'Equipo B'),
+      ],
     );
     await _repository.saveSession(session);
     emit(state.copyWith(session: session));
+    _autoStartGameTimer(emit, elapsedSeconds: 0);
+  }
+
+  Future<void> _onConfigured(
+    GameConfigured event,
+    Emitter<GameState> emit,
+  ) async {
+    _stopGameTimer();
+    await _repository.clearCurrent();
+
+    final session = GameSession.newGame(
+      mode: event.mode,
+      winScore: event.winScore,
+      participants: event.participants,
+    );
+
+    await _repository.saveSession(session);
+    emit(GameState(session: session));
+    _autoStartGameTimer(emit, elapsedSeconds: 0);
+  }
+
+  Future<void> _onRestored(
+    GameRestored event,
+    Emitter<GameState> emit,
+  ) async {
+    final saved = _repository.loadCurrentSession();
+    if (saved == null) return;
+    final elapsed = _elapsedFromSession(saved);
+    emit(GameState(
+      session: saved,
+      shotClockSeconds: elapsed,
+      isShotClockActive: true,
+    ));
+    _startGameTimer();
   }
 
   Future<void> _onScoreAdded(ScoreAdded event, Emitter<GameState> emit) async {
@@ -69,8 +118,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     if (event.specialEvent == SpecialEventType.capicua) {
       celebration = CelebrationType.capicua;
       await HapticUtils.celebration();
-    } else if (event.specialEvent == SpecialEventType.chucho) {
-      celebration = CelebrationType.chucho;
+    } else if (event.specialEvent == SpecialEventType.tranque) {
+      celebration = CelebrationType.tranque;
       await HapticUtils.celebration();
     } else if (newSession.isGameOver) {
       celebration = CelebrationType.gameWon;
@@ -83,10 +132,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       clearCelebration: celebration == null,
       clearPendingPoints: true,
     ));
-
-    if (state.isShotClockActive) {
-      add(const ShotClockReset());
-    }
   }
 
   Future<void> _onSpecialEventMarked(
@@ -100,26 +145,20 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     ));
   }
 
-  GameSession _applyScore(GameSession session, String teamId, int points) {
-    if (teamId == 'A') {
-      return session.copyWith(
-        teamA: session.teamA.copyWith(score: session.teamA.score + points),
-      );
-    }
-    return session.copyWith(
-      teamB: session.teamB.copyWith(score: session.teamB.score + points),
-    );
+  GameSession _applyScore(GameSession session, String playerId, int points) {
+    final updated = session.participants.map((player) {
+      if (player.id == playerId) {
+        return player.copyWith(score: player.score + points);
+      }
+      return player;
+    }).toList();
+    return session.copyWith(participants: updated);
   }
 
   Future<void> _onReset(GameReset event, Emitter<GameState> emit) async {
-    _shotClockTimer?.cancel();
+    _stopGameTimer();
     await _repository.clearCurrent();
-    final session = GameSession.newGame(winScore: state.session.winScore);
-    await _repository.saveSession(session);
-    emit(GameState(
-      session: session,
-      shotClockSeconds: AppConstants.defaultShotClockSeconds,
-    ));
+    emit(GameState.initial());
   }
 
   void _onShotClockToggled(
@@ -128,32 +167,20 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   ) {
     final active = !state.isShotClockActive;
     if (active) {
-      _startShotClock(emit);
+      _startGameTimer();
     } else {
-      _shotClockTimer?.cancel();
+      _stopGameTimer();
     }
-    emit(state.copyWith(
-      isShotClockActive: active,
-      shotClockSeconds: AppConstants.defaultShotClockSeconds,
-    ));
+    emit(state.copyWith(isShotClockActive: active));
   }
 
   void _onShotClockTick(ShotClockTick event, Emitter<GameState> emit) {
-    final remaining = state.shotClockSeconds - 1;
-    if (remaining <= 0) {
-      HapticUtils.warning();
-      emit(state.copyWith(shotClockSeconds: 0));
-      return;
-    }
-    if (remaining <= AppConstants.shotClockWarningSeconds) {
-      HapticUtils.lightTap();
-    }
-    emit(state.copyWith(shotClockSeconds: remaining));
+    emit(state.copyWith(shotClockSeconds: state.shotClockSeconds + 1));
   }
 
   void _onShotClockReset(ShotClockReset event, Emitter<GameState> emit) {
     emit(state.copyWith(
-      shotClockSeconds: AppConstants.defaultShotClockSeconds,
+      shotClockSeconds: AppConstants.initialGameTimerSeconds,
     ));
   }
 
@@ -164,16 +191,35 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     emit(state.copyWith(clearCelebration: true));
   }
 
-  void _startShotClock(Emitter<GameState> emit) {
+  void _autoStartGameTimer(Emitter<GameState> emit, {required int elapsedSeconds}) {
+    emit(state.copyWith(
+      isShotClockActive: true,
+      shotClockSeconds: elapsedSeconds,
+    ));
+    _startGameTimer();
+  }
+
+  int _elapsedFromSession(GameSession session) {
+    final created = session.createdAt;
+    if (created == null) return 0;
+    return DateTime.now().difference(created).inSeconds;
+  }
+
+  void _startGameTimer() {
     _shotClockTimer?.cancel();
     _shotClockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       add(const ShotClockTick());
     });
   }
 
+  void _stopGameTimer() {
+    _shotClockTimer?.cancel();
+    _shotClockTimer = null;
+  }
+
   @override
   Future<void> close() {
-    _shotClockTimer?.cancel();
+    _stopGameTimer();
     return super.close();
   }
 }

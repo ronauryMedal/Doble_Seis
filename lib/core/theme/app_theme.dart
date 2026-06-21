@@ -26,7 +26,7 @@ class AppColors {
 
   // Eventos especiales
   static const Color capicua = Color(0xFFB388FF);
-  static const Color chucho = Color(0xFFFF6B8A);
+  static const Color tranque = Color(0xFFFF6B8A);
 }
 
 /// [ThemeData] centralizado: un solo lugar define la identidad visual.

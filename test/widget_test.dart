@@ -3,7 +3,7 @@ import 'package:domino_score/data/repositories/game_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('Carga la pantalla del marcador', (WidgetTester tester) async {
+  testWidgets('Carga la pantalla de configuración', (WidgetTester tester) async {
     TestWidgetsFlutterBinding.ensureInitialized();
 
     final repository = GameRepository();
@@ -13,7 +13,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('DOBLE SEIS'), findsOneWidget);
-    expect(find.text('Equipo A'), findsOneWidget);
-    expect(find.text('Equipo B'), findsOneWidget);
+    expect(find.text('Modo de juego'), findsOneWidget);
+    expect(find.text('Equipo vs Equipo'), findsOneWidget);
+    expect(find.text('Individual'), findsOneWidget);
+    expect(find.text('Puntaje manual'), findsOneWidget);
+    expect(find.text('Comenzar partida'), findsOneWidget);
   });
 }

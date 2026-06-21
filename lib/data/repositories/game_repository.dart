@@ -35,4 +35,6 @@ class GameRepository {
     }
     await _box?.delete('current');
   }
+
+  bool get hasSavedSession => loadCurrentSession() != null;
 }

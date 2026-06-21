@@ -22,9 +22,9 @@ class CelebrationOverlay extends StatelessWidget {
           AppColors.capicua,
           Icons.auto_awesome,
         ),
-      CelebrationType.chucho => (
-          '¡CHUCHO!',
-          AppColors.chucho,
+      CelebrationType.tranque => (
+          '¡TRANQUE!',
+          AppColors.tranque,
           Icons.block,
         ),
       CelebrationType.gameWon => (

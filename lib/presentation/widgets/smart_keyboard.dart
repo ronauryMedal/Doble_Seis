@@ -15,15 +15,17 @@ class SmartKeyboard extends StatefulWidget {
     required this.onScoreSubmitted,
     required this.onQuickScore,
     this.enabled = true,
+    this.compact = false,
   });
 
   /// Se llama cuando el usuario confirma un número personalizado.
   final ValueChanged<int> onScoreSubmitted;
 
-  /// Atajos +10, +25, +30.
+  /// Atajo +30.
   final ValueChanged<int> onQuickScore;
 
   final bool enabled;
+  final bool compact;
 
   @override
   State<SmartKeyboard> createState() => _SmartKeyboardState();
@@ -63,8 +65,11 @@ class _SmartKeyboardState extends State<SmartKeyboard> {
 
   @override
   Widget build(BuildContext context) {
+    final pad = widget.compact ? 6.0 : 16.0;
+    final gap = widget.compact ? 4.0 : 12.0;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: EdgeInsets.fromLTRB(pad, 4, pad, widget.compact ? 6 : 24),
       decoration: BoxDecoration(
         color: AppColors.nightSurface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -84,15 +89,46 @@ class _SmartKeyboardState extends State<SmartKeyboard> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _DisplayBar(value: _input),
-            const SizedBox(height: 12),
-            _QuickScoreRow(onQuick: _onQuick, enabled: widget.enabled),
-            const SizedBox(height: 12),
+            if (widget.compact)
+              Row(
+                children: [
+                  Expanded(
+                    child: _DisplayBar(
+                      value: _input,
+                      compact: true,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 72,
+                    child: _KeyboardButton(
+                      label: '+${AppConstants.quickScore}',
+                      onPressed: widget.enabled
+                          ? () => _onQuick(AppConstants.quickScore)
+                          : null,
+                      accent: AppColors.neonAmber,
+                      isAccent: true,
+                      compact: true,
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              _DisplayBar(value: _input, compact: false),
+              SizedBox(height: gap),
+              _QuickScoreRow(
+                onQuick: _onQuick,
+                enabled: widget.enabled,
+                compact: false,
+              ),
+            ],
+            SizedBox(height: gap),
             _NumericPad(
               onDigit: _onDigit,
               onBackspace: _onBackspace,
               onConfirm: _onConfirm,
               enabled: widget.enabled,
+              compact: widget.compact,
             ),
           ],
         ),
@@ -102,15 +138,19 @@ class _SmartKeyboardState extends State<SmartKeyboard> {
 }
 
 class _DisplayBar extends StatelessWidget {
-  const _DisplayBar({required this.value});
+  const _DisplayBar({required this.value, this.compact = false});
 
   final String value;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: compact ? 6 : 14,
+      ),
       decoration: BoxDecoration(
         color: AppColors.nightCard,
         borderRadius: BorderRadius.circular(14),
@@ -120,7 +160,9 @@ class _DisplayBar extends StatelessWidget {
         value.isEmpty ? 'Ingresa puntos' : '+$value',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.displayMedium?.copyWith(
-              fontSize: value.isEmpty ? 20 : 36,
+              fontSize: value.isEmpty
+                  ? (compact ? 14 : 20)
+                  : (compact ? 26 : 36),
               color: value.isEmpty ? AppColors.textMuted : AppColors.neonCyan,
               fontWeight: FontWeight.w300,
             ),
@@ -133,10 +175,12 @@ class _QuickScoreRow extends StatelessWidget {
   const _QuickScoreRow({
     required this.onQuick,
     required this.enabled,
+    this.compact = false,
   });
 
   final ValueChanged<int> onQuick;
   final bool enabled;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -150,6 +194,7 @@ class _QuickScoreRow extends StatelessWidget {
               onPressed: enabled ? () => onQuick(score) : null,
               accent: AppColors.neonAmber,
               isAccent: true,
+              compact: compact,
             ),
           ),
         );
@@ -164,12 +209,14 @@ class _NumericPad extends StatelessWidget {
     required this.onBackspace,
     required this.onConfirm,
     required this.enabled,
+    this.compact = false,
   });
 
   final ValueChanged<String> onDigit;
   final VoidCallback onBackspace;
   final VoidCallback onConfirm;
   final bool enabled;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -183,17 +230,17 @@ class _NumericPad extends StatelessWidget {
       children: [
         for (final row in rows)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: EdgeInsets.only(bottom: compact ? 4 : 8),
             child: Row(
               children: row
                   .map(
                     (d) => Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
                         child: _KeyboardButton(
                           label: d,
-                          onPressed:
-                              enabled ? () => onDigit(d) : null,
+                          onPressed: enabled ? () => onDigit(d) : null,
+                          compact: compact,
                         ),
                       ),
                     ),
@@ -205,32 +252,35 @@ class _NumericPad extends StatelessWidget {
           children: [
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _KeyboardButton(
                   label: '⌫',
                   onPressed: enabled ? onBackspace : null,
-                  fontSize: 22,
+                  fontSize: compact ? 18 : 22,
+                  compact: compact,
                 ),
               ),
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _KeyboardButton(
                   label: '0',
                   onPressed: enabled ? () => onDigit('0') : null,
+                  compact: compact,
                 ),
               ),
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _KeyboardButton(
                   label: '✓',
                   onPressed: enabled ? onConfirm : null,
                   accent: AppColors.neonCyan,
                   isAccent: true,
-                  fontSize: 22,
+                  fontSize: compact ? 18 : 22,
+                  compact: compact,
                 ),
               ),
             ),
@@ -248,6 +298,7 @@ class _KeyboardButton extends StatelessWidget {
     this.accent,
     this.isAccent = false,
     this.fontSize = 26,
+    this.compact = false,
   });
 
   final String label;
@@ -255,6 +306,7 @@ class _KeyboardButton extends StatelessWidget {
   final Color? accent;
   final bool isAccent;
   final double fontSize;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -269,10 +321,10 @@ class _KeyboardButton extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 56,
+          height: compact ? 38 : 56,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(compact ? 10 : 14),
             border: Border.all(
               color: isAccent
                   ? color.withValues(alpha: 0.4)
@@ -282,7 +334,7 @@ class _KeyboardButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: fontSize,
+              fontSize: compact ? (fontSize * 0.85) : fontSize,
               fontWeight: isAccent ? FontWeight.w600 : FontWeight.w400,
               color: onPressed == null
                   ? AppColors.textMuted
