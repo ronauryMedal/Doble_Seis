@@ -9,9 +9,11 @@ import '../../../core/theme/player_colors.dart';
 import '../../../domain/enums/game_mode.dart';
 import '../../../data/models/live_room_connection_info.dart';
 import '../../../data/models/game_session.dart';
-import '../../../features/vision/vision_scan_placeholder.dart';
+import '../../../features/vision/domino_vision_scan_screen.dart';
+import '../../../features/vision/vision_scan_icon_button.dart';
 import '../../bloc/game/game_bloc.dart';
 import '../../widgets/celebration_overlay.dart';
+import '../../widgets/domino_counter_sheet.dart';
 import '../../widgets/game_log_sheet.dart';
 import '../../widgets/live_room_qr_sheet.dart';
 import '../../widgets/player_score_panel.dart';
@@ -84,6 +86,39 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                         onToggleClock: isSpectator
                             ? null
                             : () => bloc.add(const ShotClockToggled()),
+                        onOpenCounter: canEdit
+                            ? () {
+                                final target = participants.firstWhere(
+                                  (p) => p.id == _selectedPlayerId,
+                                );
+                                showDominoCounterSheet(
+                                  context,
+                                  targetName: target.name,
+                                  onApply: (points) => bloc.add(ScoreAdded(
+                                    teamId: _selectedPlayerId!,
+                                    points: points,
+                                  )),
+                                );
+                              }
+                            : null,
+                        onOpenVisionScan: canEdit
+                            ? () {
+                                final target = participants.firstWhere(
+                                  (p) => p.id == _selectedPlayerId,
+                                );
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => DominoVisionScanScreen(
+                                      targetName: target.name,
+                                      onApply: (points) => bloc.add(ScoreAdded(
+                                        teamId: _selectedPlayerId!,
+                                        points: points,
+                                      )),
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
                         onOpenLog: () => showGameLogSheet(context, session),
                         onReset: () {
                           bloc.add(const GameReset());
@@ -194,6 +229,8 @@ class _CompactToolbar extends StatelessWidget {
     required this.onOpenLog,
     this.isSpectator = false,
     this.onToggleClock,
+    this.onOpenCounter,
+    this.onOpenVisionScan,
   });
 
   final int winScore;
@@ -202,6 +239,8 @@ class _CompactToolbar extends StatelessWidget {
   final bool isShotClockActive;
   final bool isSpectator;
   final VoidCallback? onToggleClock;
+  final VoidCallback? onOpenCounter;
+  final VoidCallback? onOpenVisionScan;
   final VoidCallback onOpenLog;
   final VoidCallback onReset;
 
@@ -242,7 +281,27 @@ class _CompactToolbar extends StatelessWidget {
           ),
           if (!isSpectator) ...[
             const SizedBox(width: 2),
-            const VisionScanIconButton(),
+            IconButton(
+              onPressed: onOpenCounter,
+              tooltip: 'Conteo de fichas',
+              icon: Icon(
+                Icons.view_module_outlined,
+                size: 22,
+                color: AppColors.neonCyan.withValues(alpha: 0.85),
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.neonCyan.withValues(alpha: 0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: AppColors.neonCyan.withValues(alpha: 0.25),
+                  ),
+                ),
+                minimumSize: const Size(40, 40),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            VisionScanIconButton(onPressed: onOpenVisionScan),
           ],
           IconButton(
             onPressed: onOpenLog,

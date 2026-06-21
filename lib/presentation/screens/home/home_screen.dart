@@ -12,7 +12,9 @@ import '../../../domain/enums/game_mode.dart';
 import '../../../domain/enums/live_room_connection_mode.dart';
 import '../../../features/live_room/live_room_manager.dart';
 import '../../bloc/game/game_bloc.dart';
+import '../../widgets/app_logo.dart';
 import '../history/game_history_screen.dart';
+import '../stats/game_stats_screen.dart';
 import '../live_room/join_room_screen.dart';
 import '../scoreboard/scoreboard_screen.dart';
 
@@ -231,14 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                AppConstants.appName.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      letterSpacing: 4,
-                      color: AppColors.textMuted,
-                    ),
-              ),
+              const AppLogo(showName: false, height: 140),
               const SizedBox(height: 8),
               Text(
                 'Nueva partida',
@@ -262,6 +257,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: const Text('Partidas ganadas'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.neonAmber,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => GameStatsScreen(
+                        repository: widget.repository,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.bar_chart_rounded, size: 18),
+                label: const Text('Estadísticas'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.neonCyan,
                 ),
               ),
               const SizedBox(height: 12),

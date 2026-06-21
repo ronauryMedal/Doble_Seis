@@ -6,8 +6,10 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'Doble Seis';
+  static const String appSlogan = 'Anota, guarda y comparte tus partidas';
   static const String hiveBoxName = 'domino_games';
   static const String hiveHistoryIndexKey = 'game_history_index';
+  static const String hiveOnboardingCompleteKey = 'onboarding_complete';
 
   /// Puntaje rápido del dominó (botón destacado en el teclado).
   static const int quickScore = 30;
@@ -38,4 +40,7 @@ class AppConstants {
   static const int liveRoomPort = 8765;
   static const int liveRoomCodeLength = 6;
   static const Duration liveRoomConnectTimeout = Duration(seconds: 12);
+
+  /// Escaneo IA de fichas con cámara (desactivado hasta terminar desarrollo).
+  static const bool dominoVisionScanEnabled = false;
 }

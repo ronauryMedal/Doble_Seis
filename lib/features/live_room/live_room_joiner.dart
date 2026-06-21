@@ -43,12 +43,18 @@ class LiveRoomJoiner {
 
     if (!context.mounted) return;
 
-    context.read<GameBloc>().add(
-          LiveRoomSpectatorStarted(
-            session: session,
-            info: spectatorConnection,
-          ),
-        );
+    try {
+      context.read<GameBloc>().add(
+            LiveRoomSpectatorStarted(
+              session: session,
+              info: spectatorConnection,
+            ),
+          );
+    } on Object {
+      throw LiveRoomException('Error al abrir el marcador en vivo.');
+    }
+
+    if (!context.mounted) return;
 
     await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const ScoreboardScreen()),

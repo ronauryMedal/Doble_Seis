@@ -11,8 +11,12 @@ import '../models/game_session.dart';
 class GameRepository {
   Box<dynamic>? _box;
 
-  Future<void> init() async {
-    await Hive.initFlutter();
+  Future<void> init({String? testHivePath}) async {
+    if (testHivePath != null) {
+      Hive.init(testHivePath);
+    } else {
+      await Hive.initFlutter();
+    }
     _box = await Hive.openBox(AppConstants.hiveBoxName);
   }
 
@@ -38,6 +42,13 @@ class GameRepository {
   }
 
   bool get hasSavedSession => loadCurrentSession() != null;
+
+  bool get isOnboardingComplete =>
+      _box?.get(AppConstants.hiveOnboardingCompleteKey) == true;
+
+  Future<void> completeOnboarding() async {
+    await _box?.put(AppConstants.hiveOnboardingCompleteKey, true);
+  }
 
   Future<void> saveHistoryEntry(GameHistoryEntry entry) async {
     await _box?.put('history_${entry.id}', entry.toMap());

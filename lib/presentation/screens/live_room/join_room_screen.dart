@@ -78,9 +78,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     } on LiveRoomException catch (e) {
       await widget.liveRoomManager.disconnect();
       _showError(e.message);
-    } on Exception {
+    } catch (_) {
       await widget.liveRoomManager.disconnect();
-      _showError('No se pudo conectar. Verifica IP, código y la misma WiFi.');
+      _showError(
+        'No se pudo conectar. Verifica IP, código y que ambos estén en la misma WiFi.',
+      );
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
