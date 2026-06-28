@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app.dart';
 import 'data/repositories/game_repository.dart';
+import 'features/ads/ads_service.dart';
 import 'features/live_room/live_room_manager.dart';
 import 'features/vision/data/vision_settings_repository.dart';
 
@@ -29,6 +32,9 @@ Future<void> main() async {
   await visionSettings.init();
 
   final liveRoomManager = LiveRoomManager();
+
+  // Anuncios: inicialización "best-effort", nunca bloquea ni rompe la app.
+  unawaited(AdsService.instance.initialize());
 
   runApp(DominoApp(
     repository: repository,

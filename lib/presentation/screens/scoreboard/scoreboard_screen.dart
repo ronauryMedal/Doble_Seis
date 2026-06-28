@@ -10,6 +10,8 @@ import '../../../core/utils/score_event_formatter.dart';
 import '../../../domain/enums/game_mode.dart';
 import '../../../data/models/live_room_connection_info.dart';
 import '../../../data/models/game_session.dart';
+import '../../../features/ads/ads_service.dart';
+import '../../../features/ads/bottom_banner_ad.dart';
 import '../../../features/vision/domino_vision_scan_screen.dart';
 import '../../../features/vision/vision_scan_icon_button.dart';
 import '../../bloc/game/game_bloc.dart';
@@ -177,6 +179,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                             points: points,
                           )),
                         ),
+                      const BottomBannerAd(),
                     ],
                   ),
                 ),
@@ -184,10 +187,20 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                   CelebrationOverlay(
                     type: state.activeCelebration!,
                     winnerName: session.winner?.name,
-                    onDismiss: () => bloc.add(const CelebrationDismissed()),
+                    onDismiss: () {
+                      final wasWin =
+                          state.activeCelebration == CelebrationType.gameWon;
+                      bloc.add(const CelebrationDismissed());
+                      if (wasWin && !isSpectator) {
+                        AdsService.instance.onGameFinished();
+                      }
+                    },
                     onRematch: state.activeCelebration == CelebrationType.gameWon &&
                             !isSpectator
-                        ? () => bloc.add(const GameRematch())
+                        ? () {
+                            bloc.add(const GameRematch());
+                            AdsService.instance.onGameFinished();
+                          }
                         : null,
                     onChangePlayers: state.activeCelebration ==
                                 CelebrationType.gameWon &&
