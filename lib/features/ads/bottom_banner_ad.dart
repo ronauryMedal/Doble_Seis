@@ -8,8 +8,7 @@ import 'ads_service.dart';
 
 /// Banner inferior que aparece "a veces" (según [AdsConfig.bannerShowChance]).
 ///
-/// Si no hay internet o el anuncio no carga, no ocupa espacio (se colapsa),
-/// así que nunca estorba ni rompe el diseño.
+/// Si no hay internet o el anuncio no carga, no ocupa espacio (se colapsa).
 class BottomBannerAd extends StatefulWidget {
   const BottomBannerAd({super.key});
 
@@ -27,12 +26,12 @@ class _BottomBannerAdState extends State<BottomBannerAd> {
     _maybeLoad();
   }
 
-  void _maybeLoad() {
-    if (!AdsService.instance.isReady) return;
+  Future<void> _maybeLoad() async {
+    if (!AdsConfig.isSupportedPlatform) return;
     // "A veces": decisión aleatoria por sesión de pantalla.
     if (Random().nextDouble() > AdsConfig.bannerShowChance) return;
 
-    AdsService.instance.createBanner(
+    await AdsService.instance.createBanner(
       onLoaded: (ad) {
         if (!mounted) {
           ad.dispose();

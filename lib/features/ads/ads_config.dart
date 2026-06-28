@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 
 /// Configuración central de AdMob.
@@ -48,8 +46,10 @@ class AdsConfig {
   static const String _prodInterstitialIos =
       'ca-app-pub-0000000000000000/0000000000';
 
-  static bool get _isAndroid => !kIsWeb && Platform.isAndroid;
-  static bool get _isIOS => !kIsWeb && Platform.isIOS;
+  static bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get _isIOS =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   /// Probabilidad de mostrar el banner inferior (0.0 a 1.0).
   /// 0.6 = aparece ~60% de las partidas, para no saturar.
