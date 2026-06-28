@@ -13,7 +13,6 @@ import '../../../features/vision/domino_vision_scan_screen.dart';
 import '../../../features/vision/vision_scan_icon_button.dart';
 import '../../bloc/game/game_bloc.dart';
 import '../../widgets/celebration_overlay.dart';
-import '../../widgets/domino_counter_sheet.dart';
 import '../../widgets/game_log_sheet.dart';
 import '../../widgets/live_room_qr_sheet.dart';
 import '../../widgets/player_score_panel.dart';
@@ -71,7 +70,15 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
             _selectedPlayerId = participants.first.id;
           }
 
-          return Scaffold(
+          final inProgress = !gameOver && !isSpectator;
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              _attemptExit(context, inProgress: inProgress);
+            },
+            child: Scaffold(
             body: Stack(
               children: [
                 SafeArea(
@@ -86,21 +93,6 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                         onToggleClock: isSpectator
                             ? null
                             : () => bloc.add(const ShotClockToggled()),
-                        onOpenCounter: canEdit
-                            ? () {
-                                final target = participants.firstWhere(
-                                  (p) => p.id == _selectedPlayerId,
-                                );
-                                showDominoCounterSheet(
-                                  context,
-                                  targetName: target.name,
-                                  onApply: (points) => bloc.add(ScoreAdded(
-                                    teamId: _selectedPlayerId!,
-                                    points: points,
-                                  )),
-                                );
-                              }
-                            : null,
                         onOpenVisionScan: canEdit
                             ? () {
                                 final target = participants.firstWhere(
@@ -120,10 +112,8 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                               }
                             : null,
                         onOpenLog: () => showGameLogSheet(context, session),
-                        onReset: () {
-                          bloc.add(const GameReset());
-                          Navigator.of(context).pop();
-                        },
+                        onReset: () =>
+                            _attemptExit(context, inProgress: inProgress),
                       ),
                       if (state.isLiveHost && state.liveRoomInfo != null)
                         _LiveRoomHostBanner(info: state.liveRoomInfo!),
@@ -163,12 +153,6 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                           readOnly: isSpectator,
                           onSelect: (id) =>
                               setState(() => _selectedPlayerId = id),
-                          onSwipeScore: canEdit
-                              ? (playerId) => bloc.add(ScoreAdded(
-                                    teamId: playerId,
-                                    points: AppConstants.quickScore,
-                                  ))
-                              : null,
                         ),
                       ),
                       if (!isSpectator)
@@ -211,11 +195,56 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                       .shake(duration: 500.ms, hz: 2),
               ],
             ),
+            ),
           );
         },
       ),
       ),
     );
+  }
+
+  Future<void> _attemptExit(
+    BuildContext context, {
+    required bool inProgress,
+  }) async {
+    final bloc = context.read<GameBloc>();
+    final navigator = Navigator.of(context);
+
+    if (!inProgress) {
+      bloc.add(const GameReset());
+      navigator.pop();
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.nightSurface,
+        title: const Text('¿Terminar la partida?'),
+        content: const Text(
+          'La partida está en curso. Si sales, quedará anulada y no se '
+          'guardará en el historial ni en las estadísticas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Seguir jugando'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Terminar y salir',
+              style: TextStyle(color: AppColors.neonRose),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      bloc.add(const GameReset());
+      navigator.pop();
+    }
   }
 }
 
@@ -229,7 +258,6 @@ class _CompactToolbar extends StatelessWidget {
     required this.onOpenLog,
     this.isSpectator = false,
     this.onToggleClock,
-    this.onOpenCounter,
     this.onOpenVisionScan,
   });
 
@@ -239,7 +267,6 @@ class _CompactToolbar extends StatelessWidget {
   final bool isShotClockActive;
   final bool isSpectator;
   final VoidCallback? onToggleClock;
-  final VoidCallback? onOpenCounter;
   final VoidCallback? onOpenVisionScan;
   final VoidCallback onOpenLog;
   final VoidCallback onReset;
@@ -281,26 +308,6 @@ class _CompactToolbar extends StatelessWidget {
           ),
           if (!isSpectator) ...[
             const SizedBox(width: 2),
-            IconButton(
-              onPressed: onOpenCounter,
-              tooltip: 'Conteo de fichas',
-              icon: Icon(
-                Icons.view_module_outlined,
-                size: 22,
-                color: AppColors.neonCyan.withValues(alpha: 0.85),
-              ),
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.neonCyan.withValues(alpha: 0.1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppColors.neonCyan.withValues(alpha: 0.25),
-                  ),
-                ),
-                minimumSize: const Size(40, 40),
-                padding: EdgeInsets.zero,
-              ),
-            ),
             VisionScanIconButton(onPressed: onOpenVisionScan),
           ],
           IconButton(
@@ -471,7 +478,6 @@ class _FlexScoreGrid extends StatelessWidget {
     required this.gameOver,
     required this.onSelect,
     this.readOnly = false,
-    this.onSwipeScore,
   });
 
   final List<PlayerScore> participants;
@@ -481,7 +487,6 @@ class _FlexScoreGrid extends StatelessWidget {
   final bool gameOver;
   final bool readOnly;
   final ValueChanged<String> onSelect;
-  final ValueChanged<String>? onSwipeScore;
 
   int get _columns {
     final n = participants.length;
@@ -500,7 +505,6 @@ class _FlexScoreGrid extends StatelessWidget {
       winScore: winScore,
       emphasis: emphasis,
       onTap: () => onSelect(player.id),
-      onSwipeScore: readOnly || gameOver ? null : () => onSwipeScore?.call(player.id),
     );
   }
 

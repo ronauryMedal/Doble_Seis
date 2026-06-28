@@ -15,7 +15,6 @@ class PlayerScorePanel extends StatelessWidget {
     this.isSelected = false,
     this.emphasis = false,
     this.onTap,
-    this.onSwipeScore,
   });
 
   final PlayerScore player;
@@ -25,7 +24,6 @@ class PlayerScorePanel extends StatelessWidget {
   final bool isSelected;
   final bool emphasis;
   final VoidCallback? onTap;
-  final VoidCallback? onSwipeScore;
 
   @override
   Widget build(BuildContext context) {
@@ -33,10 +31,6 @@ class PlayerScorePanel extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      onHorizontalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity.abs() > 200) onSwipeScore?.call();
-      },
       child: AnimatedContainer(
         duration: 200.ms,
         margin: const EdgeInsets.all(3),
