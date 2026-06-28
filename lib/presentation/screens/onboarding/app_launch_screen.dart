@@ -6,7 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../features/live_room/live_room_manager.dart';
 import '../../widgets/app_logo.dart';
-import 'onboarding_screen.dart';
+import '../guide/guide_screen.dart';
 import '../home/home_screen.dart';
 
 /// Splash inicial y tutorial la primera vez.
@@ -36,23 +36,37 @@ class _AppLaunchScreenState extends State<AppLaunchScreen> {
     if (!mounted) return;
 
     final showTutorial = !widget.repository.isOnboardingComplete;
-    final next = showTutorial
-        ? OnboardingScreen(
-            repository: widget.repository,
-            liveRoomManager: widget.liveRoomManager,
-          )
-        : HomeScreen(
-            repository: widget.repository,
-            liveRoomManager: widget.liveRoomManager,
-          );
 
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => next,
+        pageBuilder: (routeContext, _, _) {
+          if (!showTutorial) {
+            return HomeScreen(
+              repository: widget.repository,
+              liveRoomManager: widget.liveRoomManager,
+            );
+          }
+          return GuideScreen(
+            onFinish: () => _finishTutorial(routeContext),
+          );
+        },
         transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(opacity: animation, child: child);
         },
         transitionDuration: const Duration(milliseconds: 450),
+      ),
+    );
+  }
+
+  Future<void> _finishTutorial(BuildContext routeContext) async {
+    await widget.repository.completeOnboarding();
+    if (!routeContext.mounted) return;
+    Navigator.of(routeContext).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => HomeScreen(
+          repository: widget.repository,
+          liveRoomManager: widget.liveRoomManager,
+        ),
       ),
     );
   }

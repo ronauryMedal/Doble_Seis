@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/score_event_formatter.dart';
-import '../../data/models/game_session.dart';
 import '../../domain/enums/special_event_type.dart';
+import '../bloc/game/game_bloc.dart';
 
 /// Bitácora de anotaciones de la partida actual.
-void showGameLogSheet(BuildContext context, GameSession session) {
+///
+/// [canEdit] habilita eliminar anotaciones (corregir errores). Se desactiva
+/// para espectadores o cuando la partida ya terminó.
+void showGameLogSheet(
+  BuildContext context, {
+  bool canEdit = false,
+}) {
+  final bloc = context.read<GameBloc>();
+
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -14,104 +23,197 @@ void showGameLogSheet(BuildContext context, GameSession session) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (context) => _GameLogSheet(session: session),
+    builder: (_) => BlocProvider.value(
+      value: bloc,
+      child: _GameLogSheet(canEdit: canEdit),
+    ),
   );
 }
 
 class _GameLogSheet extends StatelessWidget {
-  const _GameLogSheet({required this.session});
+  const _GameLogSheet({required this.canEdit});
 
-  final GameSession session;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
-    final events = session.events.reversed.toList();
-
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.55,
+      initialChildSize: 0.6,
       minChildSize: 0.35,
-      maxChildSize: 0.9,
+      maxChildSize: 0.92,
       builder: (context, scrollController) {
-        return SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.history_rounded, color: AppColors.neonCyan),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Bitácora',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            fontSize: 20,
-                          ),
+        return BlocBuilder<GameBloc, GameState>(
+          builder: (context, state) {
+            final session = state.session;
+            // Mostramos lo más reciente arriba, pero recordamos el índice real.
+            final total = session.events.length;
+            final entries = [
+              for (var i = total - 1; i >= 0; i--)
+                (originalIndex: i, event: session.events[i]),
+            ];
+
+            return SafeArea(
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    const Spacer(),
-                    Text(
-                      '${events.length} registros',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: events.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Aún no hay anotaciones.\n'
-                          'Capicúa o Tranque → luego ingresa los puntos.',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textMuted,
-                              ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.history_rounded,
+                            color: AppColors.neonCyan),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Bitácora',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineLarge
+                              ?.copyWith(fontSize: 20),
                         ),
-                      )
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        itemCount: events.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 6),
-                        itemBuilder: (context, index) {
-                          final event = events[index];
-                          return _LogEntryTile(
-                            text: ScoreEventFormatter.describe(event, session),
-                            specialEvent: event.specialEvent,
-                            isVictory: event.isGameVictory,
-                          );
-                        },
+                        const Spacer(),
+                        Text(
+                          '${entries.length} '
+                          '${entries.length == 1 ? 'registro' : 'registros'}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (canEdit && entries.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.swipe_left_alt_rounded,
+                            size: 14,
+                            color: AppColors.textMuted.withValues(alpha: 0.8),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Desliza o toca el bote para borrar una anotación',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: AppColors.textMuted,
+                                  fontSize: 11,
+                                ),
+                          ),
+                        ],
                       ),
+                    ),
+                  Expanded(
+                    child: entries.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Aún no hay anotaciones.\n'
+                              'Capicúa o Tranque → luego ingresa los puntos.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: AppColors.textMuted),
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                            itemCount: entries.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 6),
+                            itemBuilder: (context, index) {
+                              final entry = entries[index];
+                              return _LogEntryTile(
+                                key: ValueKey(
+                                  '${entry.event.timestamp.microsecondsSinceEpoch}'
+                                  '_${entry.originalIndex}',
+                                ),
+                                text: ScoreEventFormatter.describe(
+                                  entry.event,
+                                  session,
+                                ),
+                                specialEvent: entry.event.specialEvent,
+                                isVictory: entry.event.isGameVictory,
+                                canDelete: canEdit,
+                                onDelete: () => _confirmDelete(
+                                  context,
+                                  entry.originalIndex,
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
+  }
+
+  Future<bool> _confirmDelete(BuildContext context, int originalIndex) async {
+    final bloc = context.read<GameBloc>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.nightSurface,
+        title: const Text('¿Eliminar anotación?'),
+        content: const Text(
+          'Se restará del puntaje. Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: AppColors.neonRose),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      bloc.add(ScoreEventRemoved(originalIndex));
+      return true;
+    }
+    return false;
   }
 }
 
 class _LogEntryTile extends StatelessWidget {
   const _LogEntryTile({
+    super.key,
     required this.text,
     required this.specialEvent,
     required this.isVictory,
+    required this.canDelete,
+    required this.onDelete,
   });
 
   final String text;
   final SpecialEventType? specialEvent;
   final bool isVictory;
+  final bool canDelete;
+  final Future<bool> Function() onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -123,8 +225,8 @@ class _LogEntryTile extends StatelessWidget {
             null => AppColors.textPrimary,
           };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    final tile = Container(
+      padding: EdgeInsets.fromLTRB(14, 12, canDelete ? 6 : 14, 12),
       decoration: BoxDecoration(
         color: AppColors.nightCard,
         borderRadius: BorderRadius.circular(12),
@@ -156,8 +258,40 @@ class _LogEntryTile extends StatelessWidget {
               ),
             ),
           ),
+          if (canDelete)
+            IconButton(
+              onPressed: onDelete,
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Eliminar',
+              icon: Icon(
+                Icons.delete_outline_rounded,
+                size: 20,
+                color: AppColors.neonRose.withValues(alpha: 0.8),
+              ),
+            ),
         ],
       ),
+    );
+
+    if (!canDelete) return tile;
+
+    return Dismissible(
+      key: key ?? UniqueKey(),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => onDelete(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: AppColors.neonRose.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: AppColors.neonRose,
+        ),
+      ),
+      child: tile,
     );
   }
 }

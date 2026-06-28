@@ -37,6 +37,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<LiveRoomSpectatorStarted>(_onLiveRoomSpectatorStarted);
     on<LiveRoomSessionSynced>(_onLiveRoomSessionSynced);
     on<ScoreAdded>(_onScoreAdded);
+    on<ScoreEventRemoved>(_onScoreEventRemoved);
     on<SpecialEventMarked>(_onSpecialEventMarked);
     on<GameReset>(_onReset);
     on<GameRematch>(_onRematch);
@@ -219,6 +220,51 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     ));
 
     if (isLiveHost && _liveRoom.activeService != null) {
+      try {
+        await _liveRoom.activeService!.pushScoreUpdate(
+          session: newSession,
+          role: RoomRole.leader,
+        );
+      } on Exception {
+        // La partida local sigue; solo falla el broadcast WiFi.
+      }
+    }
+  }
+
+  Future<void> _onScoreEventRemoved(
+    ScoreEventRemoved event,
+    Emitter<GameState> emit,
+  ) async {
+    if (state.isSpectator) return;
+
+    final session = state.session;
+    if (event.eventIndex < 0 || event.eventIndex >= session.events.length) {
+      return;
+    }
+
+    final remaining = [...session.events]..removeAt(event.eventIndex);
+
+    final recomputed = session.participants.map((player) {
+      final total = remaining
+          .where((e) => e.teamId == player.id)
+          .fold(0, (sum, e) => sum + e.points);
+      return player.copyWith(score: total);
+    }).toList();
+
+    final newSession = session.copyWith(
+      participants: recomputed,
+      events: remaining,
+    );
+
+    await _repository.saveSession(newSession);
+    await HapticUtils.lightTap();
+
+    emit(state.copyWith(
+      session: newSession,
+      clearCelebration: true,
+    ));
+
+    if (state.isLiveHost && _liveRoom.activeService != null) {
       try {
         await _liveRoom.activeService!.pushScoreUpdate(
           session: newSession,

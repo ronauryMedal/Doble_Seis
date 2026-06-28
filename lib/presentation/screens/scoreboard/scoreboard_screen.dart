@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/player_colors.dart';
+import '../../../core/utils/score_event_formatter.dart';
 import '../../../domain/enums/game_mode.dart';
 import '../../../data/models/live_room_connection_info.dart';
 import '../../../data/models/game_session.dart';
@@ -111,7 +112,8 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                                 );
                               }
                             : null,
-                        onOpenLog: () => showGameLogSheet(context, session),
+                        onOpenLog: () =>
+                            showGameLogSheet(context, canEdit: canEdit),
                         onReset: () =>
                             _attemptExit(context, inProgress: inProgress),
                       ),
@@ -155,6 +157,13 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                               setState(() => _selectedPlayerId = id),
                         ),
                       ),
+                      if (!isSpectator)
+                        _LogAccessBar(
+                          session: session,
+                          canEdit: canEdit,
+                          onTap: () =>
+                              showGameLogSheet(context, canEdit: canEdit),
+                        ),
                       if (!isSpectator)
                         SmartKeyboard(
                           compact: true,
@@ -332,6 +341,124 @@ class _CompactToolbar extends StatelessWidget {
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Barra visible para abrir la bitácora y corregir anotaciones.
+class _LogAccessBar extends StatelessWidget {
+  const _LogAccessBar({
+    required this.session,
+    required this.canEdit,
+    required this.onTap,
+  });
+
+  final GameSession session;
+  final bool canEdit;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = session.events.length;
+    final hasEvents = count > 0;
+
+    final subtitle = hasEvents
+        ? ScoreEventFormatter.describe(session.events.last, session)
+        : 'Aún no hay anotaciones';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+      child: Material(
+        color: AppColors.nightCard,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.neonCyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    size: 16,
+                    color: AppColors.neonCyan,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Anotaciones',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          if (hasEvents) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.neonCyan.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.neonCyan,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Text(
+                        canEdit
+                            ? '$subtitle · toca para ver o corregir'
+                            : subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

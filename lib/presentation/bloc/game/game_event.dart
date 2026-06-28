@@ -79,6 +79,17 @@ final class ScoreAdded extends GameEvent {
   List<Object?> get props => [teamId, points, specialEvent];
 }
 
+/// Elimina una anotación de la bitácora (corrige un error) y recalcula puntaje.
+final class ScoreEventRemoved extends GameEvent {
+  const ScoreEventRemoved(this.eventIndex);
+
+  /// Índice en el orden cronológico de `session.events`.
+  final int eventIndex;
+
+  @override
+  List<Object?> get props => [eventIndex];
+}
+
 /// Registra Capicúa o Tranque sin puntos extra (solo celebración).
 final class SpecialEventMarked extends GameEvent {
   const SpecialEventMarked({

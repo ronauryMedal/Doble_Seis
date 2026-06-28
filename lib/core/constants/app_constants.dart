@@ -7,6 +7,7 @@ class AppConstants {
 
   static const String appName = 'Doble Seis';
   static const String appSlogan = 'Anota, guarda y comparte tus partidas';
+  static const String appVersion = '1.0.0';
   static const String hiveBoxName = 'domino_games';
   static const String hiveHistoryIndexKey = 'game_history_index';
   static const String hiveOnboardingCompleteKey = 'onboarding_complete';

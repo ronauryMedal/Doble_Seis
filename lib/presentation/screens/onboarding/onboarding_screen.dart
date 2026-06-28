@@ -27,10 +27,15 @@ class OnboardingScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.liveRoomManager,
+    this.onFinish,
   });
 
   final GameRepository repository;
   final LiveRoomManager liveRoomManager;
+
+  /// Si se provee, se ejecuta al terminar en vez de navegar al Home.
+  /// Útil al reabrir el tutorial desde el menú lateral.
+  final VoidCallback? onFinish;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -91,6 +96,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     HapticUtils.mediumTap();
     await widget.repository.completeOnboarding();
     if (!mounted) return;
+    if (widget.onFinish != null) {
+      widget.onFinish!();
+      return;
+    }
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => HomeScreen(

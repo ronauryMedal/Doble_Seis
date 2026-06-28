@@ -236,17 +236,69 @@ class LocalWifiLiveRoomService implements LiveRoomService {
 
   Future<String?> _resolveLocalIp() async {
     try {
-      for (final interface
-          in await NetworkInterface.list(type: InternetAddressType.IPv4)) {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+
+      String? bestPrivate;
+      String? fallback;
+
+      for (final interface in interfaces) {
+        final name = interface.name.toLowerCase();
+        final isWifiLike = name.contains('wlan') ||
+            name.contains('wifi') ||
+            name.startsWith('en') ||
+            name.startsWith('ap');
+        final isVirtualLike = name.contains('tun') ||
+            name.contains('tap') ||
+            name.contains('ppp') ||
+            name.contains('rmnet') ||
+            name.contains('docker') ||
+            name.contains('vbox') ||
+            name.contains('vmnet');
+
         for (final address in interface.addresses) {
-          if (!address.isLoopback) return address.address;
+          final ip = address.address;
+          if (address.isLoopback) continue;
+          if (address.isLinkLocal) continue; // 169.254.x.x
+          if (!_isPrivateIpv4(ip)) continue; // descarta datos móviles/públicas
+
+          // Mejor candidato: interfaz tipo WiFi y no virtual/VPN.
+          if (isWifiLike && !isVirtualLike) return ip;
+
+          if (!isVirtualLike) {
+            bestPrivate ??= ip;
+          } else {
+            fallback ??= ip;
+          }
         }
       }
+
+      return bestPrivate ?? fallback;
     } on Object {
       // Sin permisos de red o plataforma no soportada.
     }
 
     return null;
+  }
+
+  /// Solo IPs de redes privadas (LAN) sirven para una sala WiFi local.
+  bool _isPrivateIpv4(String ip) {
+    final parts = ip.split('.');
+    if (parts.length != 4) return false;
+    final octets = parts.map(int.tryParse).toList();
+    if (octets.any((o) => o == null || o < 0 || o > 255)) return false;
+
+    final a = octets[0]!;
+    final b = octets[1]!;
+    // 10.0.0.0/8
+    if (a == 10) return true;
+    // 172.16.0.0/12
+    if (a == 172 && b >= 16 && b <= 31) return true;
+    // 192.168.0.0/16
+    if (a == 192 && b == 168) return true;
+    return false;
   }
 
   String _generateRoomCode() {
