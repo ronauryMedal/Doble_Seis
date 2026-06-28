@@ -20,7 +20,9 @@ class CloudLiveRoomService implements LiveRoomService {
   }
 
   @override
-  Future<void> joinRoom({required LiveRoomConnectionInfo connection}) async {
+  Future<GameSession> joinRoom({
+    required LiveRoomConnectionInfo connection,
+  }) async {
     throw UnimplementedError('Sala en la nube — próximamente.');
   }
 

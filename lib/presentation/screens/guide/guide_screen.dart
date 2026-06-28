@@ -9,15 +9,226 @@ import '../../widgets/app_logo.dart';
 /// Cada paso muestra una ilustración. Si existe una captura real en
 /// `assets/images/tutorial/<image>` se usa esa; si no, se dibuja un
 /// mini-mockup con widgets para que la guía funcione sin imágenes externas.
-class GuideScreen extends StatelessWidget {
+/// Secciones de la guía.
+class _GuideSection {
+  const _GuideSection(this.label, this.icon, this.color);
+  final String label;
+  final IconData icon;
+  final Color color;
+}
+
+const _GuideSection _secBefore =
+    _GuideSection('Antes de empezar', Icons.tune_rounded, AppColors.neonCyan);
+const _GuideSection _secDuring = _GuideSection(
+    'Durante la partida', Icons.sports_esports_rounded, AppColors.neonAmber);
+const _GuideSection _secAfter =
+    _GuideSection('Después de jugar', Icons.insights_rounded, AppColors.neonCyan);
+
+/// Datos de un paso de la guía (compartidos por la vista lista y paginada).
+class _GuideStepData {
+  const _GuideStepData({
+    required this.section,
+    required this.accent,
+    required this.title,
+    required this.description,
+    required this.imageName,
+    required this.mockup,
+    this.tips = const [],
+  });
+
+  final _GuideSection section;
+  final Color accent;
+  final String title;
+  final String description;
+  final String imageName;
+  final Widget mockup;
+  final List<String> tips;
+}
+
+const List<_GuideStepData> _steps = [
+  _GuideStepData(
+    section: _secBefore,
+    accent: AppColors.neonCyan,
+    title: 'Elige el modo de juego',
+    description: 'Define cómo se reparten los puntos en la partida.',
+    tips: [
+      'Equipo vs Equipo: dos bandos (A y B). Ideal para parejas.',
+      'Individual: cada jugador lleva su propio puntaje (2 a 6).',
+    ],
+    imageName: 'guide_mode.png',
+    mockup: _ModeMockup(),
+  ),
+  _GuideStepData(
+    section: _secBefore,
+    accent: AppColors.neonCyan,
+    title: 'Cantidad de jugadores y nombres',
+    description:
+        'Ajusta cuántos juegan con los botones – / + y personaliza los '
+        'nombres para identificarlos en el marcador.',
+    tips: [
+      'En equipos: 1 o 2 jugadores por equipo y nombre de cada equipo.',
+      'Individual: de 2 a 6 jugadores, cada uno con su color.',
+    ],
+    imageName: 'guide_players.png',
+    mockup: _PlayersMockup(),
+  ),
+  _GuideStepData(
+    section: _secBefore,
+    accent: AppColors.neonAmber,
+    title: 'Define la meta de puntos',
+    description:
+        'Elige un atajo (100, 150, 200) o escribe un puntaje manual. '
+        'Gana quien llegue primero a esa meta.',
+    imageName: 'guide_target.png',
+    mockup: _TargetMockup(),
+  ),
+  _GuideStepData(
+    section: _secBefore,
+    accent: AppColors.neonAmber,
+    title: 'Compartir el marcador',
+    description:
+        'Decide si la partida se ve solo en tu celular o se comparte en '
+        'vivo con otros.',
+    tips: [
+      'Solo local: el marcador vive únicamente en tu teléfono.',
+      'WiFi local: tú anotas y los demás ven el marcador en la misma red '
+          'WiFi escaneando tu QR.',
+      'Nube: sincronización por internet — próximamente.',
+    ],
+    imageName: 'guide_connection.png',
+    mockup: _ConnectionMockup(),
+  ),
+  _GuideStepData(
+    section: _secBefore,
+    accent: AppColors.neonAmber,
+    title: 'Unirme como espectador',
+    description:
+        'Si otra persona lleva el marcador, no creas partida: toca «Unirme '
+        'como espectador» y escanea su QR (o escribe IP y código). Verás el '
+        'juego en vivo en modo solo lectura.',
+    tips: [
+      'Ambos celulares deben estar en la misma red WiFi.',
+      'El espectador no puede anotar; solo observa.',
+    ],
+    imageName: 'guide_spectator.png',
+    mockup: _SpectatorMockup(),
+  ),
+  _GuideStepData(
+    section: _secDuring,
+    accent: AppColors.neonCyan,
+    title: 'La barra superior',
+    description: 'Arriba ves el modo y la meta, más accesos rápidos.',
+    tips: [
+      'Reloj de tiro: cronómetro opcional; tócalo para iniciar/pausar.',
+      'Bitácora: abre el historial de anotaciones de la mano.',
+      'Terminar: cierra la partida; pide confirmación si hay juego en curso.',
+    ],
+    imageName: 'guide_toolbar.png',
+    mockup: _ToolbarMockup(),
+  ),
+  _GuideStepData(
+    section: _secDuring,
+    accent: AppColors.neonCyan,
+    title: 'Elige a quién anotar',
+    description:
+        'Toca la tarjeta del equipo o jugador para seleccionarlo (queda '
+        'resaltado). Quien va ganando se marca como líder.',
+    imageName: 'guide_select.png',
+    mockup: _SelectMockup(),
+  ),
+  _GuideStepData(
+    section: _secDuring,
+    accent: AppColors.neonAmber,
+    title: 'Anota los puntos',
+    description:
+        'Con el seleccionado, usa el teclado: el atajo +30 suma una mano de '
+        'dominó, o escribe un número y confirma con ✓.',
+    tips: [
+      'El marcador se actualiza al instante.',
+      'El botón ⌫ borra el último dígito escrito.',
+    ],
+    imageName: 'guide_score.png',
+    mockup: _ScoreMockup(),
+  ),
+  _GuideStepData(
+    section: _secDuring,
+    accent: AppColors.capicua,
+    title: 'Eventos especiales',
+    description:
+        'Antes de anotar, activa Capicúa o Tranque para esa jugada; quedan '
+        'registrados en la bitácora.',
+    tips: [
+      'Capicúa: activa el chip y luego ingresa los puntos.',
+      'Tranque: márcalo cuando el juego se cierra.',
+    ],
+    imageName: 'guide_events.png',
+    mockup: _EventsMockup(),
+  ),
+  _GuideStepData(
+    section: _secDuring,
+    accent: AppColors.neonRose,
+    title: 'Corrige un error',
+    description:
+        'Toca la barra «Anotaciones» para abrir la bitácora. Desliza o usa el '
+        'botón de borrar para eliminar una anotación; el total se recalcula solo.',
+    imageName: 'guide_fix.png',
+    mockup: _FixMockup(),
+  ),
+  _GuideStepData(
+    section: _secDuring,
+    accent: AppColors.neonAmber,
+    title: 'Comparte en vivo (WiFi)',
+    description:
+        'Si creaste la partida en modo WiFi local, toca el banner del QR para '
+        'mostrarlo. Los demás lo escanean y siguen el marcador.',
+    tips: [
+      'Mantén pulsado el banner para copiar la IP y el código.',
+      'Todos deben estar en la misma red WiFi.',
+    ],
+    imageName: 'guide_share.png',
+    mockup: _ShareMockup(),
+  ),
+  _GuideStepData(
+    section: _secDuring,
+    accent: AppColors.capicua,
+    title: 'Fin de la partida',
+    description:
+        'Al alcanzar la meta aparece la celebración del ganador. Puedes jugar '
+        'revancha o cambiar de jugadores.',
+    tips: [
+      'Si sales con la partida en curso, se anula y no se guarda.',
+    ],
+    imageName: 'guide_end.png',
+    mockup: _EndMockup(),
+  ),
+  _GuideStepData(
+    section: _secAfter,
+    accent: AppColors.neonCyan,
+    title: 'Historial y estadísticas',
+    description:
+        'Las partidas terminadas se guardan. Desde el menú lateral revisa '
+        'partidas ganadas y estadísticas de equipos y jugadores.',
+    imageName: 'guide_stats.png',
+    mockup: _StatsMockup(),
+  ),
+];
+
+/// Guía de uso ilustrada con dos modos: lista completa o paso a paso.
+class GuideScreen extends StatefulWidget {
   const GuideScreen({super.key, this.onFinish});
 
   /// Si se provee, la guía se muestra como tutorial de primera vez:
-  /// agrega «Omitir» arriba y «¡Entendido!» al final en vez de la
-  /// flecha de volver. Si es null, funciona como pantalla normal del menú.
+  /// agrega «Omitir» y un botón final. Si es null, es la pantalla del menú.
   final VoidCallback? onFinish;
 
-  bool get _isFirstRun => onFinish != null;
+  @override
+  State<GuideScreen> createState() => _GuideScreenState();
+}
+
+class _GuideScreenState extends State<GuideScreen> {
+  bool _pageMode = false;
+
+  bool get _isFirstRun => widget.onFinish != null;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +240,7 @@ class GuideScreen extends StatelessWidget {
         actions: _isFirstRun
             ? [
                 TextButton(
-                  onPressed: onFinish,
+                  onPressed: widget.onFinish,
                   child: const Text(
                     'Omitir',
                     style: TextStyle(color: AppColors.textMuted),
@@ -40,217 +251,350 @@ class GuideScreen extends StatelessWidget {
       ),
       body: SafeArea(
         top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+        child: Column(
           children: [
-            const _IntroHeader(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: _ViewModeToggle(
+                pageMode: _pageMode,
+                onChanged: (value) => setState(() => _pageMode = value),
+              ),
+            ),
+            Expanded(
+              child: _pageMode
+                  ? _PagedGuide(
+                      isFirstRun: _isFirstRun,
+                      onFinish: widget.onFinish,
+                    )
+                  : _ListGuide(
+                      isFirstRun: _isFirstRun,
+                      onFinish: widget.onFinish,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-            const _SectionHeader(
-              icon: Icons.tune_rounded,
-              label: 'Antes de empezar',
-              color: AppColors.neonCyan,
-            ),
-            _GuideStep(
-              index: 1,
-              accent: AppColors.neonCyan,
-              title: 'Elige el modo de juego',
-              description:
-                  'Define cómo se reparten los puntos en la partida.',
-              tips: const [
-                'Equipo vs Equipo: dos bandos (A y B). Ideal para parejas.',
-                'Individual: cada jugador lleva su propio puntaje (2 a 6).',
-              ],
-              imageName: 'guide_mode.png',
-              mockup: const _ModeMockup(),
-            ),
-            _GuideStep(
-              index: 2,
-              accent: AppColors.neonCyan,
-              title: 'Cantidad de jugadores y nombres',
-              description:
-                  'Ajusta cuántos juegan con los botones – / + y personaliza '
-                  'los nombres para identificarlos en el marcador.',
-              tips: const [
-                'En equipos: 1 o 2 jugadores por equipo y nombre de cada equipo.',
-                'Individual: de 2 a 6 jugadores, cada uno con su color.',
-              ],
-              imageName: 'guide_players.png',
-              mockup: const _PlayersMockup(),
-            ),
-            _GuideStep(
-              index: 3,
-              accent: AppColors.neonAmber,
-              title: 'Define la meta de puntos',
-              description:
-                  'Elige un atajo (100, 150, 200) o escribe un puntaje manual. '
-                  'Gana quien llegue primero a esa meta.',
-              imageName: 'guide_target.png',
-              mockup: const _TargetMockup(),
-            ),
-            _GuideStep(
-              index: 4,
-              accent: AppColors.neonAmber,
-              title: 'Compartir el marcador',
-              description:
-                  'Decide si la partida se ve solo en tu celular o se comparte '
-                  'en vivo con otros.',
-              tips: const [
-                'Solo local: el marcador vive únicamente en tu teléfono.',
-                'WiFi local: tú anotas y los demás ven el marcador en la misma '
-                    'red WiFi escaneando tu QR.',
-                'Nube: sincronización por internet — próximamente.',
-              ],
-              imageName: 'guide_connection.png',
-              mockup: const _ConnectionMockup(),
-            ),
-            _GuideStep(
-              index: 5,
-              accent: AppColors.neonAmber,
-              title: 'Unirme como espectador',
-              description:
-                  'Si otra persona lleva el marcador, no creas partida: toca '
-                  '«Unirme como espectador» y escanea su QR (o escribe IP y '
-                  'código). Verás el juego en vivo en modo solo lectura.',
-              tips: const [
-                'Ambos celulares deben estar en la misma red WiFi.',
-                'El espectador no puede anotar; solo observa.',
-              ],
-              imageName: 'guide_spectator.png',
-              mockup: const _SpectatorMockup(),
-            ),
+/// Selector entre «Todo junto» (lista) y «Paso a paso» (paginado).
+class _ViewModeToggle extends StatelessWidget {
+  const _ViewModeToggle({required this.pageMode, required this.onChanged});
 
-            const _SectionHeader(
-              icon: Icons.sports_esports_rounded,
-              label: 'Durante la partida',
-              color: AppColors.neonAmber,
-            ),
-            _GuideStep(
-              index: 6,
-              accent: AppColors.neonCyan,
-              title: 'La barra superior',
-              description:
-                  'Arriba ves el modo y la meta, más accesos rápidos.',
-              tips: const [
-                'Reloj de tiro: cronómetro opcional; tócalo para iniciar/pausar.',
-                'Bitácora (↺): abre el historial de anotaciones de la mano.',
-                'Nueva partida (⟳): reinicia; pedirá confirmación si hay juego.',
-              ],
-              imageName: 'guide_toolbar.png',
-              mockup: const _ToolbarMockup(),
-            ),
-            _GuideStep(
-              index: 7,
-              accent: AppColors.neonCyan,
-              title: 'Elige a quién anotar',
-              description:
-                  'Toca la tarjeta del equipo o jugador para seleccionarlo '
-                  '(queda resaltado). Quien va ganando se marca como líder.',
-              imageName: 'guide_select.png',
-              mockup: const _SelectMockup(),
-            ),
-            _GuideStep(
-              index: 8,
-              accent: AppColors.neonAmber,
-              title: 'Anota los puntos',
-              description:
-                  'Con el seleccionado, usa el teclado: el atajo +30 suma una '
-                  'mano de dominó, o escribe un número y confirma con ✓.',
-              tips: const [
-                'El marcador se actualiza al instante.',
-                'El botón ⌫ borra el último dígito escrito.',
-              ],
-              imageName: 'guide_score.png',
-              mockup: const _ScoreMockup(),
-            ),
-            _GuideStep(
-              index: 9,
-              accent: AppColors.capicua,
-              title: 'Eventos especiales',
-              description:
-                  'Antes de anotar, activa Capicúa o Tranque para esa jugada; '
-                  'quedan registrados en la bitácora.',
-              tips: const [
-                'Capicúa: activa el chip y luego ingresa los puntos.',
-                'Tranque: márcalo cuando el juego se cierra.',
-              ],
-              imageName: 'guide_events.png',
-              mockup: const _EventsMockup(),
-            ),
-            _GuideStep(
-              index: 10,
-              accent: AppColors.neonRose,
-              title: 'Corrige un error',
-              description:
-                  'Toca la barra «Anotaciones» para abrir la bitácora. Desliza '
-                  'o usa el botón de borrar para eliminar una anotación; el '
-                  'total se recalcula solo.',
-              imageName: 'guide_fix.png',
-              mockup: const _FixMockup(),
-            ),
-            _GuideStep(
-              index: 11,
-              accent: AppColors.neonAmber,
-              title: 'Comparte en vivo (WiFi)',
-              description:
-                  'Si creaste la partida en modo WiFi local, toca el banner del '
-                  'QR para mostrarlo. Los demás lo escanean y siguen el marcador.',
-              tips: const [
-                'Mantén pulsado el banner para copiar la IP y el código.',
-                'Todos deben estar en la misma red WiFi.',
-              ],
-              imageName: 'guide_share.png',
-              mockup: const _ShareMockup(),
-            ),
-            _GuideStep(
-              index: 12,
-              accent: AppColors.capicua,
-              title: 'Fin de la partida',
-              description:
-                  'Al alcanzar la meta aparece la celebración del ganador. '
-                  'Puedes jugar revancha o cambiar de jugadores.',
-              tips: const [
-                'Si sales con la partida en curso, se anula y no se guarda.',
-              ],
-              imageName: 'guide_end.png',
-              mockup: const _EndMockup(),
-            ),
+  final bool pageMode;
+  final ValueChanged<bool> onChanged;
 
-            const _SectionHeader(
-              icon: Icons.insights_rounded,
-              label: 'Después de jugar',
-              color: AppColors.neonCyan,
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(
+          value: false,
+          label: Text('Todo junto'),
+          icon: Icon(Icons.view_agenda_outlined, size: 18),
+        ),
+        ButtonSegment(
+          value: true,
+          label: Text('Paso a paso'),
+          icon: Icon(Icons.auto_stories_outlined, size: 18),
+        ),
+      ],
+      selected: {pageMode},
+      onSelectionChanged: (selection) => onChanged(selection.first),
+      style: ButtonStyle(
+        textStyle: WidgetStatePropertyAll(
+          Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+    );
+  }
+}
+
+/// Vista "Todo junto": lista desplazable con todos los pasos.
+class _ListGuide extends StatelessWidget {
+  const _ListGuide({required this.isFirstRun, this.onFinish});
+
+  final bool isFirstRun;
+  final VoidCallback? onFinish;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[const _IntroHeader()];
+
+    _GuideSection? current;
+    for (var i = 0; i < _steps.length; i++) {
+      final step = _steps[i];
+      if (!identical(step.section, current)) {
+        current = step.section;
+        children.add(_SectionHeader(
+          icon: current.icon,
+          label: current.label,
+          color: current.color,
+        ));
+      }
+      children.add(_GuideStep(
+        index: i + 1,
+        accent: step.accent,
+        title: step.title,
+        description: step.description,
+        tips: step.tips,
+        imageName: step.imageName,
+        mockup: step.mockup,
+        isLast: i == _steps.length - 1,
+      ));
+    }
+
+    if (isFirstRun) {
+      children
+        ..add(const SizedBox(height: 24))
+        ..add(
+          FilledButton(
+            onPressed: onFinish,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.neonCyan,
+              foregroundColor: AppColors.nightBackground,
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-            _GuideStep(
-              index: 13,
-              accent: AppColors.neonCyan,
-              title: 'Historial y estadísticas',
-              description:
-                  'Las partidas terminadas se guardan. Desde el menú lateral '
-                  'revisa partidas ganadas y estadísticas de equipos y jugadores.',
-              imageName: 'guide_stats.png',
-              mockup: const _StatsMockup(),
-              isLast: true,
+            child: const Text(
+              '¡Entendido, empezar!',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
-            if (_isFirstRun) ...[
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: onFinish,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.neonCyan,
-                  foregroundColor: AppColors.nightBackground,
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          ),
+        );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+      children: children,
+    );
+  }
+}
+
+/// Vista "Paso a paso": una pantalla por paso con navegación.
+class _PagedGuide extends StatefulWidget {
+  const _PagedGuide({required this.isFirstRun, this.onFinish});
+
+  final bool isFirstRun;
+  final VoidCallback? onFinish;
+
+  @override
+  State<_PagedGuide> createState() => _PagedGuideState();
+}
+
+class _PagedGuideState extends State<_PagedGuide> {
+  final _controller = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _next() {
+    if (_page >= _steps.length - 1) {
+      if (widget.isFirstRun) {
+        widget.onFinish?.call();
+      } else {
+        Navigator.of(context).maybePop();
+      }
+      return;
+    }
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _back() {
+    if (_page == 0) return;
+    _controller.previousPage(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLast = _page == _steps.length - 1;
+
+    return Column(
+      children: [
+        Expanded(
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: _steps.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (context, index) => _GuidePage(
+              data: _steps[index],
+              index: index + 1,
+              total: _steps.length,
+            ),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_steps.length, (i) {
+            final active = i == _page;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active
+                    ? AppColors.neonCyan
+                    : Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+          child: Row(
+            children: [
+              if (_page > 0)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _back,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                      minimumSize: const Size.fromHeight(50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Atrás'),
                   ),
                 ),
-                child: const Text(
-                  '¡Entendido, empezar!',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              if (_page > 0) const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: _next,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.neonCyan,
+                    foregroundColor: AppColors.nightBackground,
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    isLast
+                        ? (widget.isFirstRun ? '¡Entendido!' : 'Listo')
+                        : 'Siguiente',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
-          ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+/// Una página individual del modo "Paso a paso".
+class _GuidePage extends StatelessWidget {
+  const _GuidePage({
+    required this.data,
+    required this.index,
+    required this.total,
+  });
+
+  final _GuideStepData data;
+  final int index;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(data.section.icon, size: 16, color: data.section.color),
+              const SizedBox(width: 6),
+              Text(
+                data.section.label.toUpperCase(),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: data.section.color,
+                      letterSpacing: 1.5,
+                      fontSize: 11,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: data.accent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: data.accent.withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  '$index',
+                  style: TextStyle(
+                    color: data.accent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Paso $index de $total',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            data.title,
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  fontSize: 24,
+                ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            data.description,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+          ),
+          if (data.tips.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...data.tips.map((tip) => _TipRow(text: tip, accent: data.accent)),
+          ],
+          const SizedBox(height: 20),
+          _IllustrationFrame(
+            accent: data.accent,
+            imageName: data.imageName,
+            mockup: data.mockup,
+          ),
+        ],
       ),
     );
   }
@@ -761,7 +1105,29 @@ class _ToolbarMockup extends StatelessWidget {
         const SizedBox(width: 6),
         _iconBox(Icons.history_rounded, AppColors.textSecondary),
         const SizedBox(width: 6),
-        _iconBox(Icons.refresh_rounded, AppColors.textSecondary),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.neonRose.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.neonRose.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.flag_rounded, size: 13, color: AppColors.neonRose),
+              SizedBox(width: 4),
+              Text(
+                'Terminar',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.neonRose,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

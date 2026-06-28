@@ -6,8 +6,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../features/live_room/live_room_manager.dart';
 import '../../widgets/app_logo.dart';
-import '../guide/guide_screen.dart';
 import '../home/home_screen.dart';
+import 'welcome_screen.dart';
 
 /// Splash inicial y tutorial la primera vez.
 class AppLaunchScreen extends StatefulWidget {
@@ -35,38 +35,26 @@ class _AppLaunchScreenState extends State<AppLaunchScreen> {
     await Future<void>.delayed(const Duration(milliseconds: 2400));
     if (!mounted) return;
 
-    final showTutorial = !widget.repository.isOnboardingComplete;
+    final showWelcome = !widget.repository.isOnboardingComplete;
 
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
-        pageBuilder: (routeContext, _, _) {
-          if (!showTutorial) {
+        pageBuilder: (_, _, _) {
+          if (!showWelcome) {
             return HomeScreen(
               repository: widget.repository,
               liveRoomManager: widget.liveRoomManager,
             );
           }
-          return GuideScreen(
-            onFinish: () => _finishTutorial(routeContext),
+          return WelcomeScreen(
+            repository: widget.repository,
+            liveRoomManager: widget.liveRoomManager,
           );
         },
         transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(opacity: animation, child: child);
         },
         transitionDuration: const Duration(milliseconds: 450),
-      ),
-    );
-  }
-
-  Future<void> _finishTutorial(BuildContext routeContext) async {
-    await widget.repository.completeOnboarding();
-    if (!routeContext.mounted) return;
-    Navigator.of(routeContext).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => HomeScreen(
-          repository: widget.repository,
-          liveRoomManager: widget.liveRoomManager,
-        ),
       ),
     );
   }

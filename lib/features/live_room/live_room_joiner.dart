@@ -32,14 +32,7 @@ class LiveRoomJoiner {
     );
 
     final service = manager.serviceFor(spectatorConnection.mode);
-    await service.joinRoom(connection: spectatorConnection);
-
-    final session = await service.watchSession().first.timeout(
-          AppConstants.liveRoomConnectTimeout,
-          onTimeout: () => throw LiveRoomException(
-            'No llegó el marcador del anfitrión.',
-          ),
-        );
+    final session = await service.joinRoom(connection: spectatorConnection);
 
     if (!context.mounted) return;
 

@@ -67,7 +67,9 @@ class LocalWifiLiveRoomService implements LiveRoomService {
   }
 
   @override
-  Future<void> joinRoom({required LiveRoomConnectionInfo connection}) async {
+  Future<GameSession> joinRoom({
+    required LiveRoomConnectionInfo connection,
+  }) async {
     await leaveRoom();
 
     final host = connection.hostAddress;
@@ -130,7 +132,7 @@ class LocalWifiLiveRoomService implements LiveRoomService {
       ),
     );
 
-    await firstSession.future.timeout(
+    final initialSession = await firstSession.future.timeout(
       AppConstants.liveRoomConnectTimeout,
       onTimeout: () => throw LiveRoomException(
         'Conectado, pero no llegó el marcador del anfitrión.',
@@ -138,6 +140,7 @@ class LocalWifiLiveRoomService implements LiveRoomService {
     );
 
     _connected = true;
+    return initialSession;
   }
 
   @override

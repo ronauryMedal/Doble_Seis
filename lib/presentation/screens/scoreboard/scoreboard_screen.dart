@@ -315,7 +315,7 @@ class _CompactToolbar extends StatelessWidget {
             isActive: isShotClockActive,
             onToggle: onToggleClock ?? () {},
           ),
-          if (!isSpectator) ...[
+          if (!isSpectator && AppConstants.dominoVisionScanEnabled) ...[
             const SizedBox(width: 2),
             VisionScanIconButton(onPressed: onOpenVisionScan),
           ],
@@ -328,19 +328,60 @@ class _CompactToolbar extends StatelessWidget {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
-          IconButton(
-            onPressed: onReset,
-            icon: Icon(
-              isSpectator ? Icons.close_rounded : Icons.refresh_rounded,
-              size: 18,
-            ),
-            color: AppColors.textSecondary,
-            tooltip: isSpectator ? 'Salir' : 'Nueva partida',
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
+          const SizedBox(width: 4),
+          _EndGameButton(isSpectator: isSpectator, onPressed: onReset),
+          const SizedBox(width: 4),
         ],
+      ),
+    );
+  }
+}
+
+/// Botón claro para terminar la partida (o salir, si es espectador).
+class _EndGameButton extends StatelessWidget {
+  const _EndGameButton({
+    required this.isSpectator,
+    required this.onPressed,
+  });
+
+  final bool isSpectator;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSpectator ? AppColors.neonAmber : AppColors.neonRose;
+    final label = isSpectator ? 'Salir' : 'Terminar';
+    final icon =
+        isSpectator ? Icons.close_rounded : Icons.flag_rounded;
+
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

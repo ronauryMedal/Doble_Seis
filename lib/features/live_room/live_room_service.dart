@@ -14,8 +14,9 @@ abstract class LiveRoomService {
     required GameSession initialSession,
   });
 
-  /// Espectador: se conecta a la sala del anfitrión.
-  Future<void> joinRoom({required LiveRoomConnectionInfo connection});
+  /// Espectador: se conecta a la sala del anfitrión y devuelve el marcador
+  /// inicial recibido (evita depender del siguiente broadcast).
+  Future<GameSession> joinRoom({required LiveRoomConnectionInfo connection});
 
   /// Emite cada actualización del marcador remoto.
   Stream<GameSession> watchSession();
