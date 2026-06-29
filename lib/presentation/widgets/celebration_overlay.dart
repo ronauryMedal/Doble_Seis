@@ -126,14 +126,15 @@ class CelebrationOverlay extends StatelessWidget {
                 ),
               ] else if (_isGameEnd) ...[
                 Text(
-                  'Espera a que el anfitrión inicie otra ronda',
+                  'La partida terminó. Escanea de nuevo el QR para unirte '
+                  'a otra sala.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.textSecondary,
                       ),
                 ),
                 const SizedBox(height: 20),
-                FilledButton(
+                FilledButton.icon(
                   onPressed: onDismiss,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.neonAmber,
@@ -143,7 +144,8 @@ class CelebrationOverlay extends StatelessWidget {
                       vertical: 14,
                     ),
                   ),
-                  child: const Text('Entendido'),
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  label: const Text('Escanear otra sala'),
                 ),
               ] else
                 GestureDetector(

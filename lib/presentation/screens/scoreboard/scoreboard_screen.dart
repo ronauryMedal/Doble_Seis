@@ -15,6 +15,7 @@ import '../../../features/ads/bottom_banner_ad.dart';
 import '../../../features/vision/domino_vision_scan_screen.dart';
 import '../../../features/vision/vision_scan_icon_button.dart';
 import '../../bloc/game/game_bloc.dart';
+import '../live_room/scan_room_qr_screen.dart';
 import '../../widgets/celebration_overlay.dart';
 import '../../widgets/game_log_sheet.dart';
 import '../../widgets/live_room_qr_sheet.dart';
@@ -191,8 +192,11 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                       final wasWin =
                           state.activeCelebration == CelebrationType.gameWon;
                       bloc.add(const CelebrationDismissed());
-                      if (wasWin && !isSpectator) {
+                      if (wasWin) {
                         AdsService.instance.onGameFinished();
+                      }
+                      if (wasWin && isSpectator) {
+                        _returnSpectatorToScanner(context, bloc);
                       }
                     },
                     onRematch: state.activeCelebration == CelebrationType.gameWon &&
@@ -221,6 +225,24 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
           );
         },
       ),
+      ),
+    );
+  }
+
+  Future<void> _returnSpectatorToScanner(
+    BuildContext context,
+    GameBloc bloc,
+  ) async {
+    final navigator = Navigator.of(context);
+    final manager = bloc.liveRoomManager;
+
+    // GameReset se encarga de desconectar la sala y limpiar el estado.
+    bloc.add(const GameReset());
+
+    if (!navigator.mounted) return;
+    navigator.pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => ScanRoomQrScreen(liveRoomManager: manager),
       ),
     );
   }

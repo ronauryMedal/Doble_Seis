@@ -52,6 +52,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   Timer? _shotClockTimer;
   StreamSubscription<GameSession>? _liveRoomSubscription;
 
+  /// Acceso al gestor de sala (p. ej. para que el espectador vuelva a unirse).
+  LiveRoomManager get liveRoomManager => _liveRoom;
+
   Future<void> _onStarted(GameStarted event, Emitter<GameState> emit) async {
     final saved = _repository.loadCurrentSession();
     if (saved != null) {
@@ -143,6 +146,19 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   ) async {
     if (!state.isSpectator) return;
     await _repository.saveSession(event.session);
+
+    // Si la partida acaba de terminar en el lado del anfitrión, el espectador
+    // ve la misma animación de ganador.
+    final justEnded = !state.session.isGameOver && event.session.isGameOver;
+    if (justEnded) {
+      await HapticUtils.celebration();
+      emit(state.copyWith(
+        session: event.session,
+        activeCelebration: CelebrationType.gameWon,
+      ));
+      return;
+    }
+
     emit(state.copyWith(session: event.session));
   }
 
