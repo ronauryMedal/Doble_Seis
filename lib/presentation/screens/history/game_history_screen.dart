@@ -9,44 +9,124 @@ import '../../../data/models/score_event.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../domain/enums/special_event_type.dart';
 import '../../widgets/app_background.dart';
+import '../../widgets/cloud_account_card.dart';
 
-/// Historial de partidas ganadas guardadas en Hive.
-class GameHistoryScreen extends StatelessWidget {
+/// Historial de partidas ganadas (Hive + nube).
+class GameHistoryScreen extends StatefulWidget {
   const GameHistoryScreen({super.key, required this.repository});
 
   final GameRepository repository;
 
   @override
-  Widget build(BuildContext context) {
-    final history = repository.loadHistory();
+  State<GameHistoryScreen> createState() => _GameHistoryScreenState();
+}
 
+class _GameHistoryScreenState extends State<GameHistoryScreen> {
+  late List<GameHistoryEntry> _history;
+  bool _syncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _history = widget.repository.loadHistory();
+    _syncFromCloud();
+  }
+
+  Future<void> _syncFromCloud() async {
+    setState(() => _syncing = true);
+    try {
+      final list = await widget.repository.syncHistoryFromCloud();
+      if (!mounted) return;
+      setState(() => _history = list);
+    } on Object {
+      if (!mounted) return;
+      setState(() => _history = widget.repository.loadHistory());
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  void _reloadLocal() {
+    setState(() => _history = widget.repository.loadHistory());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Partidas ganadas'),
+        actions: [
+          if (_syncing)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: 'Sincronizar',
+              onPressed: _syncFromCloud,
+              icon: const Icon(Icons.sync_rounded),
+            ),
+        ],
       ),
       body: AppBackground(
-        child: history.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Text(
-                    'Aún no hay partidas guardadas.\n'
-                    'Al terminar una partida se guardará aquí.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textMuted,
-                        ),
-                  ),
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                itemCount: history.length,
-                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (context, index) {
-                  return _HistoryCard(entry: history[index]);
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
+              child: CloudAccountCard(
+                repository: widget.repository,
+                onSynced: () {
+                  _reloadLocal();
+                  _syncFromCloud();
                 },
               ),
+            ),
+            Expanded(
+              child: _history.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: Text(
+                          'Aún no hay partidas guardadas.\n'
+                          'Al terminar una partida se guardará aquí.\n'
+                          'Con Google puedes recuperarlas en otro teléfono.',
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        0,
+                        AppSpacing.md,
+                        AppSpacing.md,
+                      ),
+                      itemCount: _history.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.sm),
+                      itemBuilder: (context, index) {
+                        return _HistoryCard(entry: _history[index]);
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -61,17 +61,25 @@ rooms/{roomCode}/status         ← open | closed
 2. Completa `ensureSignedIn` / `pushHistoryEntry` / `pullHistoryEntries`
 3. En Historial/Stats: `await repository.syncHistoryFromCloud()` antes de pintar
 
-## Estado actual (Android)
+## Login con Google (historial entre dispositivos)
 
-- [x] Proyecto Firebase `doble-seis-6788b`
-- [x] `android/app/google-services.json`
-- [x] Plugin Gradle `com.google.gms.google-services`
-- [x] Paquetes: `firebase_core`, `firebase_auth`, `firebase_database`
-- [x] `FirebaseCloudSync` + `GameRepository(cloudSync: …)`
-- [ ] Activar **Authentication → Anónimo**
-- [ ] Crear **Realtime Database** (si aún no)
-- [ ] Pegar reglas de seguridad (abajo)
-- [ ] (Opcional) App iOS + `flutterfire configure`
+1. Firebase Console → **Authentication** → **Agregar proveedor** → **Google** → Habilitar
+2. Anota el **ID de cliente web** que muestra Firebase
+3. **Configuración del proyecto** → tu app Android → **Agregar huella digital**:
+   - SHA-1 debug de este PC:
+     `3D:03:FA:7B:3D:B0:39:77:74:FD:79:AE:41:C9:14:A2:D8:45:CD:F6`
+   - Comando por si regeneras el keystore:
+   ```bash
+   keytool -list -v -alias androiddebugkey -keystore %USERPROFILE%\.android\debug.keystore -storepass android -keypass android
+   ```
+4. Descarga de nuevo `google-services.json` → `android/app/`
+5. Pasa el Web client ID al arrancar (recomendado):
+   ```bash
+   flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=xxxxx.apps.googleusercontent.com
+   ```
+   o edita el `defaultValue` en `FirebaseCloudSync.webClientId`.
+
+En la app: menú (☰) o **Partidas ganadas** → **Continuar con Google**.
 
 ## Reglas Realtime Database (empezar)
 

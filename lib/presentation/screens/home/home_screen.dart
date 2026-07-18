@@ -23,6 +23,7 @@ import '../guide/guide_screen.dart';
 import '../live_room/join_room_screen.dart';
 import '../scoreboard/easy_scoreboard_screen.dart';
 import '../scoreboard/scoreboard_screen.dart';
+import '../../widgets/cloud_account_card.dart';
 
 /// Pantalla de configuración: modo, puntaje, jugadores y nombres.
 class HomeScreen extends StatefulWidget {
@@ -356,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       drawer: _HomeDrawer(
+        repository: widget.repository,
         onHistory: _openHistory,
         onStats: _openStats,
         onSpectator: _openSpectatorJoin,
@@ -702,6 +704,7 @@ class _NameField extends StatelessWidget {
 
 class _HomeDrawer extends StatelessWidget {
   const _HomeDrawer({
+    required this.repository,
     required this.onHistory,
     required this.onStats,
     required this.onSpectator,
@@ -709,6 +712,7 @@ class _HomeDrawer extends StatelessWidget {
     required this.onAbout,
   });
 
+  final GameRepository repository;
   final VoidCallback onHistory;
   final VoidCallback onStats;
   final VoidCallback onSpectator;
@@ -723,7 +727,7 @@ class _HomeDrawer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -739,6 +743,13 @@ class _HomeDrawer extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: CloudAccountCard(
+                repository: repository,
+                compact: true,
               ),
             ),
             const Divider(height: 1),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -107,21 +108,57 @@ class GameRepository {
         final entry = GameHistoryEntry.fromMap(raw);
         await _saveHistoryLocal(entry, prependIndex: true);
       }
-    } on Object {
-      // Offline o Firebase aún no cableado: seguimos con lo local.
+    } on Object catch (e, st) {
+      debugPrint('[CloudSync] pull falló: $e\n$st');
     }
     return loadHistory();
   }
 
-  /// Intenta login en la nube (anónimo u otro). No rompe si no hay Firebase.
+  /// Intenta login en la nube, sube historial local y baja remoto.
   Future<bool> enableCloudSync() async {
-    if (!_cloud.isConfigured) return false;
+    if (!_cloud.isConfigured) {
+      debugPrint('[CloudSync] desactivado (NoOp)');
+      return false;
+    }
     try {
       await _cloud.ensureSignedIn();
+      // Sube lo que ya había en el teléfono (antes de Firebase).
+      for (final entry in loadHistory()) {
+        await _cloud.pushHistoryEntry(entry.toMap());
+      }
       await syncHistoryFromCloud();
+      debugPrint('[CloudSync] sync inicial OK (uid=${_cloud.userId})');
       return true;
-    } on Object {
+    } on Object catch (e, st) {
+      debugPrint('[CloudSync] enable falló: $e\n$st');
       return false;
+    }
+  }
+
+  /// Login con Google + subida/bajada de historial.
+  Future<bool> signInWithGoogleAndSync() async {
+    if (!_cloud.isConfigured) return false;
+    try {
+      await _cloud.signInWithGoogle();
+      for (final entry in loadHistory()) {
+        await _cloud.pushHistoryEntry(entry.toMap());
+      }
+      await syncHistoryFromCloud();
+      debugPrint('[CloudSync] Google sync OK (uid=${_cloud.userId})');
+      return true;
+    } on Object catch (e, st) {
+      debugPrint('[CloudSync] Google login falló: $e\n$st');
+      rethrow;
+    }
+  }
+
+  /// Cierra sesión Google y vuelve a anónimo (historial local se conserva).
+  Future<void> signOutCloud() async {
+    if (!_cloud.isConfigured) return;
+    try {
+      await _cloud.signOut();
+    } on Object catch (e, st) {
+      debugPrint('[CloudSync] signOut falló: $e\n$st');
     }
   }
 
@@ -147,8 +184,9 @@ class GameRepository {
         await _cloud.ensureSignedIn();
       }
       await _cloud.pushHistoryEntry(entry.toMap());
-    } on Object {
-      // Queda en local; se podrá reintentar en un sync futuro.
+    } on Object catch (e, st) {
+      debugPrint('[CloudSync] push falló: $e\n$st');
     }
   }
 }
+

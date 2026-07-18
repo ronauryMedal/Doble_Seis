@@ -21,15 +21,15 @@ Future<void> main() async {
     ),
   );
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await _ensureFirebase();
 
   final repository = GameRepository(cloudSync: FirebaseCloudSync());
   await repository.init();
 
   // Login anónimo + bajada de historial (no bloquea si falla / offline).
-  await repository.enableCloudSync();
+  final cloudOk = await repository.enableCloudSync();
+  // ignore: avoid_print
+  print('[CloudSync] enableCloudSync → $cloudOk uid=${repository.cloud.userId}');
 
   final visionSettings = VisionSettingsRepository();
   await visionSettings.init();
@@ -41,4 +41,25 @@ Future<void> main() async {
     liveRoomManager: liveRoomManager,
     visionSettings: visionSettings,
   ));
+}
+
+/// Android (google-services) a veces ya creó [DEFAULT] en nativo.
+Future<void> _ensureFirebase() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      // Ya existe; seguimos con Firebase.app().
+    } else {
+      rethrow;
+    }
+  } catch (e) {
+    // Algunas versiones lanzan un error genérico con ese texto.
+    final msg = e.toString();
+    if (!msg.contains('duplicate-app')) rethrow;
+  }
+  // ignore: avoid_print
+  print('[CloudSync] Firebase listo (app=${Firebase.app().name})');
 }
