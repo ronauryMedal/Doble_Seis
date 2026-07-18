@@ -10,6 +10,7 @@ import '../../../data/models/participant_setup.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../domain/enums/game_mode.dart';
 import '../../../domain/enums/live_room_connection_mode.dart';
+import '../../../domain/enums/scoring_ui_mode.dart';
 import '../../../features/live_room/live_room_manager.dart';
 import '../../bloc/game/game_bloc.dart';
 import '../../widgets/app_logo.dart';
@@ -17,6 +18,7 @@ import '../history/game_history_screen.dart';
 import '../stats/game_stats_screen.dart';
 import '../guide/guide_screen.dart';
 import '../live_room/join_room_screen.dart';
+import '../scoreboard/easy_scoreboard_screen.dart';
 import '../scoreboard/scoreboard_screen.dart';
 
 /// Pantalla de configuración: modo, puntaje, jugadores y nombres.
@@ -35,6 +37,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  ScoringUiMode _scoringUiMode = ScoringUiMode.easy;
   GameMode _mode = GameMode.teamVsTeam;
   LiveRoomConnectionMode _connectionMode = LiveRoomConnectionMode.offline;
   int _playerCount = AppConstants.defaultIndividualPlayers;
@@ -101,6 +104,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _setScoringUiMode(ScoringUiMode mode) {
+    HapticUtils.selection();
+    setState(() {
+      _scoringUiMode = mode;
+      if (mode == ScoringUiMode.easy) {
+        _mode = GameMode.teamVsTeam;
+        _connectionMode = LiveRoomConnectionMode.offline;
+      }
+    });
+  }
+
   void _setMode(GameMode mode) {
     HapticUtils.selection();
     setState(() => _mode = mode);
@@ -140,7 +154,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<ParticipantSetup> _buildParticipants() {
-    if (_mode == GameMode.teamVsTeam) {
+    if (_scoringUiMode == ScoringUiMode.easy ||
+        _mode == GameMode.teamVsTeam) {
+      // En Modo Fácil solo hay nombres de equipo (sin miembros).
+      if (_scoringUiMode == ScoringUiMode.easy) {
+        return [
+          ParticipantSetup(name: _teamANameController.text),
+          ParticipantSetup(name: _teamBNameController.text),
+        ];
+      }
       return [
         ParticipantSetup(
           name: _teamANameController.text,
@@ -157,6 +179,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return _individualControllers
         .map((c) => ParticipantSetup(name: c.text))
         .toList(growable: false);
+  }
+
+  Widget _scoreboardForSession({required bool restore}) {
+    if (restore) {
+      final saved = widget.repository.loadCurrentSession();
+      if (saved != null && saved.isEasyMode) {
+        return const EasyScoreboardScreen();
+      }
+      return const ScoreboardScreen();
+    }
+    return _scoringUiMode == ScoringUiMode.easy
+        ? const EasyScoreboardScreen()
+        : const ScoreboardScreen();
   }
 
   void _startGame({required bool restore}) {
@@ -184,16 +219,21 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       bloc.add(GameConfigured(
         winScore: _selectedWinScore,
-        mode: _mode,
+        mode: _scoringUiMode == ScoringUiMode.easy
+            ? GameMode.teamVsTeam
+            : _mode,
         participants: _buildParticipants(),
-        connectionMode: _connectionMode,
+        connectionMode: _scoringUiMode == ScoringUiMode.easy
+            ? LiveRoomConnectionMode.offline
+            : _connectionMode,
+        scoringUiMode: _scoringUiMode,
       ));
     }
 
     Navigator.of(context)
         .push(
           MaterialPageRoute<void>(
-            builder: (_) => const ScoreboardScreen(),
+            builder: (_) => _scoreboardForSession(restore: restore),
           ),
         )
         .then((_) => _checkSavedGame());
@@ -324,32 +364,22 @@ class _HomeScreenState extends State<HomeScreen> {
               const AppLogo(showName: false, height: 120),
               const SizedBox(height: 8),
               Text(
-                'Nueva partida',
+                _scoringUiMode == ScoringUiMode.easy
+                    ? 'Nueva partida'
+                    : 'Modo completo',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
-              const SizedBox(height: 20),
-              _SpectatorJoinCard(onTap: _openSpectatorJoin),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'o crea una partida',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const _SectionTitle(title: 'Modo de juego'),
-              const SizedBox(height: 12),
-              _ModeSelector(selected: _mode, onSelected: _setMode),
+              if (_scoringUiMode == ScoringUiMode.easy) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Escribe los nombres y anota. Así de simple.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                ),
+              ],
               const SizedBox(height: 28),
               const _SectionTitle(title: 'Primero a'),
               const SizedBox(height: 12),
@@ -394,80 +424,109 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 28),
-              if (_mode == GameMode.teamVsTeam) ...[
-                const _SectionTitle(title: 'Jugadores por equipo'),
+              if (_scoringUiMode == ScoringUiMode.easy) ...[
+                const _SectionTitle(title: 'Nombres de equipos'),
                 const SizedBox(height: 12),
-                _CountSelector(
-                  count: _playersPerTeam,
-                  min: AppConstants.minPlayersPerTeam,
-                  max: AppConstants.maxPlayersPerTeam,
-                  onChanged: _setPlayersPerTeam,
-                ),
-                const SizedBox(height: 28),
-                _TeamSetupBlock(
-                  title: 'Equipo A',
+                _NameField(
+                  label: 'Equipo A',
                   color: AppColors.teamA,
-                  teamNameController: _teamANameController,
-                  playerControllers: _teamAPlayerControllers,
+                  controller: _teamANameController,
                 ),
-                const SizedBox(height: 16),
-                _TeamSetupBlock(
-                  title: 'Equipo B',
+                const SizedBox(height: 12),
+                _NameField(
+                  label: 'Equipo B',
                   color: AppColors.teamB,
-                  teamNameController: _teamBNameController,
-                  playerControllers: _teamBPlayerControllers,
+                  controller: _teamBNameController,
                 ),
               ] else ...[
-                const _SectionTitle(title: 'Cantidad de jugadores'),
-                const SizedBox(height: 12),
-                _CountSelector(
-                  count: _playerCount,
-                  min: AppConstants.minIndividualPlayers,
-                  max: AppConstants.maxIndividualPlayers,
-                  onChanged: _setPlayerCount,
+                TextButton.icon(
+                  onPressed: () => _setScoringUiMode(ScoringUiMode.easy),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Volver al modo fácil'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.neonCyan,
+                  ),
                 ),
-                const SizedBox(height: 28),
-                const _SectionTitle(title: 'Nombres de jugadores'),
                 const SizedBox(height: 12),
-                ...List.generate(_individualControllers.length, (index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _NameField(
-                      label: 'Jugador ${index + 1}',
-                      color: PlayerColors.forIndex(index),
-                      controller: _individualControllers[index],
-                    ),
-                  );
-                }),
-              ],
-              const SizedBox(height: 28),
-              const _SectionTitle(title: 'Compartir marcador'),
-              const SizedBox(height: 12),
-              _ConnectionModeSelector(
-                selected: _connectionMode,
-                onSelected: (mode) {
-                  if (!mode.isAvailable) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sala en la nube — próximamente.'),
-                        backgroundColor: AppColors.neonRose,
+                const _SectionTitle(title: 'Modo de juego'),
+                const SizedBox(height: 12),
+                _ModeSelector(selected: _mode, onSelected: _setMode),
+                const SizedBox(height: 28),
+                if (_mode == GameMode.teamVsTeam) ...[
+                  const _SectionTitle(title: 'Jugadores por equipo'),
+                  const SizedBox(height: 12),
+                  _CountSelector(
+                    count: _playersPerTeam,
+                    min: AppConstants.minPlayersPerTeam,
+                    max: AppConstants.maxPlayersPerTeam,
+                    onChanged: _setPlayersPerTeam,
+                  ),
+                  const SizedBox(height: 28),
+                  _TeamSetupBlock(
+                    title: 'Equipo A',
+                    color: AppColors.teamA,
+                    teamNameController: _teamANameController,
+                    playerControllers: _teamAPlayerControllers,
+                  ),
+                  const SizedBox(height: 16),
+                  _TeamSetupBlock(
+                    title: 'Equipo B',
+                    color: AppColors.teamB,
+                    teamNameController: _teamBNameController,
+                    playerControllers: _teamBPlayerControllers,
+                  ),
+                ] else ...[
+                  const _SectionTitle(title: 'Cantidad de jugadores'),
+                  const SizedBox(height: 12),
+                  _CountSelector(
+                    count: _playerCount,
+                    min: AppConstants.minIndividualPlayers,
+                    max: AppConstants.maxIndividualPlayers,
+                    onChanged: _setPlayerCount,
+                  ),
+                  const SizedBox(height: 28),
+                  const _SectionTitle(title: 'Nombres de jugadores'),
+                  const SizedBox(height: 12),
+                  ...List.generate(_individualControllers.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _NameField(
+                        label: 'Jugador ${index + 1}',
+                        color: PlayerColors.forIndex(index),
+                        controller: _individualControllers[index],
                       ),
                     );
-                    return;
-                  }
-                  HapticUtils.selection();
-                  setState(() => _connectionMode = mode);
-                },
-              ),
-              if (_connectionMode == LiveRoomConnectionMode.localWifi) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Tú anotas; los demás escanean tu QR en la misma WiFi.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
+                  }),
+                ],
+                const SizedBox(height: 28),
+                const _SectionTitle(title: 'Compartir marcador'),
+                const SizedBox(height: 12),
+                _ConnectionModeSelector(
+                  selected: _connectionMode,
+                  onSelected: (mode) {
+                    if (!mode.isAvailable) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Sala en la nube — próximamente.'),
+                          backgroundColor: AppColors.neonRose,
+                        ),
+                      );
+                      return;
+                    }
+                    HapticUtils.selection();
+                    setState(() => _connectionMode = mode);
+                  },
                 ),
+                if (_connectionMode == LiveRoomConnectionMode.localWifi) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Tú anotas; los demás escanean tu QR en la misma WiFi.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                  ),
+                ],
               ],
               const SizedBox(height: 28),
               FilledButton(
@@ -480,9 +539,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text(
-                  'Comenzar partida',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                child: Text(
+                  _scoringUiMode == ScoringUiMode.easy
+                      ? 'Comenzar'
+                      : 'Comenzar partida',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (_hasSavedGame) ...[
@@ -502,22 +566,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Text('Continuar partida'),
                 ),
               ],
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _openSpectatorJoin,
-                icon: const Icon(Icons.visibility_rounded, size: 18),
-                label: const Text('Unirme como espectador'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.neonAmber,
-                  side: BorderSide(
-                    color: AppColors.neonAmber.withValues(alpha: 0.45),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              if (_scoringUiMode == ScoringUiMode.easy) ...[
+                const SizedBox(height: 20),
+                TextButton.icon(
+                  onPressed: () => _setScoringUiMode(ScoringUiMode.full),
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: const Text('Entrar en modo completo'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
                   ),
                 ),
-              ),
+                Text(
+                  'WiFi, capicúa, reloj, individual y más opciones.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                ),
+              ],
             ],
           ),
         ),
@@ -615,76 +681,6 @@ class _NameField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: color.withValues(alpha: 0.6)),
-        ),
-      ),
-    );
-  }
-}
-
-class _SpectatorJoinCard extends StatelessWidget {
-  const _SpectatorJoinCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.neonAmber.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.neonAmber.withValues(alpha: 0.35),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.neonAmber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.qr_code_scanner_rounded,
-                  color: AppColors.neonAmber,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Unirme como espectador',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontSize: 16,
-                            color: AppColors.neonAmber,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Escanea el QR de quien lleva el marcador',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: AppColors.neonAmber.withValues(alpha: 0.7),
-              ),
-            ],
-          ),
         ),
       ),
     );

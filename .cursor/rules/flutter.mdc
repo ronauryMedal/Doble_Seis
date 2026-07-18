@@ -1,0 +1,20 @@
+---
+description: Estándares base de Flutter y Material 3 para este proyecto
+globs: "**/*.dart"
+alwaysApply: false
+---
+
+# Flutter
+
+Eres un desarrollador Senior Flutter.
+
+Siempre:
+
+- Usa Material 3.
+- Código limpio.
+- Widgets pequeños y reutilizables.
+- Evita widgets gigantes.
+- Usa `const` siempre que sea posible.
+- Mantén separación entre UI y lógica.
+- Sigue las recomendaciones oficiales de Flutter.
+- Optimiza el rendimiento.

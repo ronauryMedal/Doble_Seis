@@ -1,0 +1,16 @@
+---
+description: Patrones BLoC / flutter_bloc para estado de UI
+globs: "lib/presentation/bloc/**/*.dart"
+alwaysApply: false
+---
+
+# BLoC
+
+Este proyecto usa `flutter_bloc` (no Riverpod).
+
+- Separa `event`, `state` y `bloc` en archivos claros.
+- Estados inmutables; usa `copyWith` o clases sealed/freezed si ya existen.
+- La UI solo despacha eventos y reacciona con `BlocBuilder` / `BlocListener`.
+- No pongas lógica de negocio pesada dentro de widgets.
+- Evita side effects en `build`; usa listeners o el propio BLoC.
+- Nombrado consistente: `XxxEvent`, `XxxState`, `XxxBloc`.

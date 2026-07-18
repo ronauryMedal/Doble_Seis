@@ -1,0 +1,28 @@
+---
+description: Estándares de animaciones fluidas en Flutter
+globs: "lib/presentation/**/*.dart"
+alwaysApply: false
+---
+
+# Animaciones
+
+Cada interacción debe sentirse fluida.
+
+## Preferencias
+
+- `AnimatedContainer`
+- `AnimatedOpacity`
+- `Hero`
+- `TweenAnimationBuilder`
+- `AnimatedSwitcher`
+
+## Duración
+
+200–350 ms
+
+## Curvas
+
+- `Curves.easeOut`
+- `Curves.easeInOut`
+
+Evita animaciones bruscas.

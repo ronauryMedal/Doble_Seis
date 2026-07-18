@@ -9,6 +9,7 @@ class ScoreEvent {
     this.specialEvent,
     this.note,
     this.isGameVictory = false,
+    this.roundId,
   });
 
   final String teamId;
@@ -18,6 +19,9 @@ class ScoreEvent {
   final String? note;
   final bool isGameVictory;
 
+  /// En Modo Fácil: agrupa los dos puntos (equipo A y B) de una misma ronda.
+  final String? roundId;
+
   Map<String, dynamic> toMap() => {
         'teamId': teamId,
         'points': points,
@@ -25,6 +29,7 @@ class ScoreEvent {
         'specialEvent': specialEvent?.name,
         'note': note,
         'isGameVictory': isGameVictory,
+        if (roundId != null) 'roundId': roundId,
       };
 
   factory ScoreEvent.fromMap(Map<dynamic, dynamic> map) => ScoreEvent(
@@ -36,6 +41,7 @@ class ScoreEvent {
             : null,
         note: map['note'] as String?,
         isGameVictory: map['isGameVictory'] as bool? ?? false,
+        roundId: map['roundId'] as String?,
       );
 }
 

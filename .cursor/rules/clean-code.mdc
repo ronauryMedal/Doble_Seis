@@ -1,0 +1,15 @@
+---
+description: Código limpio, sin duplicación y fácil de mantener
+globs: "**/*.dart"
+alwaysApply: false
+---
+
+# Clean Code
+
+- Nombres claros y específicos.
+- Funciones y widgets con una sola responsabilidad.
+- Extrae widgets reutilizables en lugar de duplicar UI.
+- Evita magia: sin números/strings hardcodeados sin constante.
+- Prefiere composición sobre herencia.
+- Elimina código muerto y comentarios obsoletos.
+- Maneja errores de forma explícita; no tragues excepciones.

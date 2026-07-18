@@ -1,0 +1,25 @@
+---
+description: Principios de UX/UI premium para pantallas Flutter
+globs: "lib/presentation/**/*.dart"
+alwaysApply: false
+---
+
+# UI
+
+Todas las interfaces deben verse modernas.
+
+## Inspiración
+
+- Apple
+- Google Material 3
+- Linear
+- Notion
+
+## Siempre usar
+
+- Mucho espacio en blanco
+- Bordes redondeados
+- Sombras suaves
+- Animaciones elegantes
+- Diseño responsive
+- Dark Mode

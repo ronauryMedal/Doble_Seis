@@ -13,6 +13,7 @@ import '../../../data/repositories/game_repository.dart';
 import '../../../domain/enums/game_mode.dart';
 import '../../../domain/enums/live_room_connection_mode.dart';
 import '../../../domain/enums/room_role.dart';
+import '../../../domain/enums/scoring_ui_mode.dart';
 import '../../../domain/enums/special_event_type.dart';
 import '../../../data/models/live_room_connection_info.dart';
 import '../../../features/live_room/live_room_manager.dart';
@@ -38,6 +39,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<LiveRoomSessionSynced>(_onLiveRoomSessionSynced);
     on<ScoreAdded>(_onScoreAdded);
     on<ScoreEventRemoved>(_onScoreEventRemoved);
+    on<RoundAdded>(_onRoundAdded);
+    on<RoundRemoved>(_onRoundRemoved);
     on<SpecialEventMarked>(_onSpecialEventMarked);
     on<GameReset>(_onReset);
     on<GameRematch>(_onRematch);
@@ -91,6 +94,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       mode: event.mode,
       winScore: event.winScore,
       participants: event.participants,
+      scoringUiMode: event.scoringUiMode,
     );
 
     await _repository.saveSession(session);
@@ -290,6 +294,106 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         // La partida local sigue; solo falla el broadcast WiFi.
       }
     }
+  }
+
+  Future<void> _onRoundAdded(
+    RoundAdded event,
+    Emitter<GameState> emit,
+  ) async {
+    if (state.isSpectator) return;
+    if (event.pointsByTeamId.isEmpty) return;
+    if (event.pointsByTeamId.values.every((p) => p <= 0)) return;
+
+    final session = state.session;
+    final now = DateTime.now();
+    final roundId = now.microsecondsSinceEpoch.toString();
+
+    var updated = session;
+    final newEvents = <ScoreEvent>[];
+
+    for (final entry in event.pointsByTeamId.entries) {
+      final points = entry.value < 0 ? 0 : entry.value;
+      if (!session.participants.any((p) => p.id == entry.key)) continue;
+      if (points > 0) {
+        updated = _applyScore(updated, entry.key, points);
+      }
+      newEvents.add(ScoreEvent(
+        teamId: entry.key,
+        points: points,
+        timestamp: now,
+        roundId: roundId,
+      ));
+    }
+
+    if (newEvents.isEmpty) return;
+
+    final gameOver = updated.isGameOver;
+    if (gameOver) {
+      // Marca victoria en el último evento de la ronda.
+      final last = newEvents.last;
+      newEvents[newEvents.length - 1] = ScoreEvent(
+        teamId: last.teamId,
+        points: last.points,
+        timestamp: last.timestamp,
+        roundId: last.roundId,
+        isGameVictory: true,
+      );
+    }
+
+    final newSession = updated.copyWith(
+      events: [...session.events, ...newEvents],
+    );
+
+    if (gameOver) {
+      await _saveToHistory(newSession);
+    }
+
+    await _repository.saveSession(newSession);
+    await HapticUtils.mediumTap();
+
+    CelebrationType? celebration;
+    if (gameOver) {
+      celebration = CelebrationType.gameWon;
+      await HapticUtils.celebration();
+    }
+
+    emit(state.copyWith(
+      session: newSession,
+      activeCelebration: celebration,
+      clearCelebration: celebration == null,
+    ));
+  }
+
+  Future<void> _onRoundRemoved(
+    RoundRemoved event,
+    Emitter<GameState> emit,
+  ) async {
+    if (state.isSpectator) return;
+
+    final session = state.session;
+    final remaining =
+        session.events.where((e) => e.roundId != event.roundId).toList();
+    if (remaining.length == session.events.length) return;
+
+    final recomputed = session.participants.map((player) {
+      final total = remaining
+          .where((e) => e.teamId == player.id)
+          .fold(0, (sum, e) => sum + e.points);
+      return player.copyWith(score: total);
+    }).toList();
+
+    final newSession = session.copyWith(
+      participants: recomputed,
+      events: remaining,
+    );
+
+    await _repository.saveSession(newSession);
+    await HapticUtils.lightTap();
+
+    emit(state.copyWith(
+      session: newSession,
+      clearCelebration: true,
+    ));
   }
 
   Future<void> _saveToHistory(GameSession session) async {

@@ -23,15 +23,18 @@ final class GameConfigured extends GameEvent {
     required this.mode,
     required this.participants,
     this.connectionMode = LiveRoomConnectionMode.offline,
+    this.scoringUiMode = ScoringUiMode.full,
   });
 
   final int winScore;
   final GameMode mode;
   final List<ParticipantSetup> participants;
   final LiveRoomConnectionMode connectionMode;
+  final ScoringUiMode scoringUiMode;
 
   @override
-  List<Object?> get props => [winScore, mode, participants, connectionMode];
+  List<Object?> get props =>
+      [winScore, mode, participants, connectionMode, scoringUiMode];
 }
 
 /// Espectador conectado a una sala WiFi / nube.
@@ -88,6 +91,29 @@ final class ScoreEventRemoved extends GameEvent {
 
   @override
   List<Object?> get props => [eventIndex];
+}
+
+/// Modo Fácil: suma una ronda completa (puntos de ambos equipos).
+final class RoundAdded extends GameEvent {
+  const RoundAdded({
+    required this.pointsByTeamId,
+  });
+
+  /// Mapa teamId → puntos de la ronda (puede incluir 0).
+  final Map<String, int> pointsByTeamId;
+
+  @override
+  List<Object?> get props => [pointsByTeamId];
+}
+
+/// Modo Fácil: elimina una ronda completa por su [roundId].
+final class RoundRemoved extends GameEvent {
+  const RoundRemoved(this.roundId);
+
+  final String roundId;
+
+  @override
+  List<Object?> get props => [roundId];
 }
 
 /// Registra Capicúa o Tranque sin puntos extra (solo celebración).

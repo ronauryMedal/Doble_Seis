@@ -1,4 +1,5 @@
 import '../../domain/enums/game_mode.dart';
+import '../../domain/enums/scoring_ui_mode.dart';
 import 'participant_setup.dart';
 import 'score_event.dart';
 
@@ -54,6 +55,7 @@ class GameSession {
     required this.winScore,
     this.events = const [],
     this.createdAt,
+    this.scoringUiMode = ScoringUiMode.full,
   });
 
   final String id;
@@ -62,6 +64,9 @@ class GameSession {
   final int winScore;
   final List<ScoreEvent> events;
   final DateTime? createdAt;
+  final ScoringUiMode scoringUiMode;
+
+  bool get isEasyMode => scoringUiMode == ScoringUiMode.easy;
 
   bool get isGameOver =>
       participants.any((player) => player.score >= winScore);
@@ -85,6 +90,7 @@ class GameSession {
     int? winScore,
     List<ScoreEvent>? events,
     DateTime? createdAt,
+    ScoringUiMode? scoringUiMode,
   }) =>
       GameSession(
         id: id ?? this.id,
@@ -93,6 +99,7 @@ class GameSession {
         winScore: winScore ?? this.winScore,
         events: events ?? this.events,
         createdAt: createdAt ?? this.createdAt,
+        scoringUiMode: scoringUiMode ?? this.scoringUiMode,
       );
 
   Map<String, dynamic> toMap() => {
@@ -102,9 +109,12 @@ class GameSession {
         'winScore': winScore,
         'events': events.map((e) => e.toMap()).toList(),
         'createdAt': createdAt?.toIso8601String(),
+        'scoringUiMode': scoringUiMode.name,
       };
 
   factory GameSession.fromMap(Map<dynamic, dynamic> map) {
+    final scoringUiMode = _parseScoringUiMode(map['scoringUiMode'] as String?);
+
     if (map.containsKey('participants')) {
       return GameSession(
         id: map['id'] as String,
@@ -119,6 +129,7 @@ class GameSession {
         createdAt: map['createdAt'] != null
             ? DateTime.parse(map['createdAt'] as String)
             : null,
+        scoringUiMode: scoringUiMode,
       );
     }
 
@@ -137,6 +148,7 @@ class GameSession {
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'] as String)
           : null,
+      scoringUiMode: scoringUiMode,
     );
   }
 
@@ -144,6 +156,7 @@ class GameSession {
     required GameMode mode,
     required int winScore,
     required List<ParticipantSetup> participants,
+    ScoringUiMode scoringUiMode = ScoringUiMode.full,
   }) {
     final now = DateTime.now();
     final players = participants.asMap().entries.map((entry) {
@@ -169,6 +182,7 @@ class GameSession {
       participants: players,
       winScore: winScore,
       createdAt: now,
+      scoringUiMode: scoringUiMode,
     );
   }
 
@@ -181,18 +195,58 @@ class GameSession {
       winScore: previous.winScore,
       createdAt: now,
       events: const [],
+      scoringUiMode: previous.scoringUiMode,
       participants: previous.participants
           .map((p) => p.copyWith(score: 0))
           .toList(growable: false),
     );
   }
 
+  /// Rondas del Modo Fácil (agrupadas por [ScoreEvent.roundId]), en orden.
+  List<EasyRound> get easyRounds {
+    final orderedIds = <String>[];
+    final byRound = <String, List<ScoreEvent>>{};
+    for (final event in events) {
+      final id = event.roundId;
+      if (id == null) continue;
+      if (!byRound.containsKey(id)) {
+        orderedIds.add(id);
+        byRound[id] = [];
+      }
+      byRound[id]!.add(event);
+    }
+    return [
+      for (final id in orderedIds)
+        EasyRound(roundId: id, events: byRound[id]!),
+    ];
+  }
+
   static String _defaultName(GameMode mode, int index) {
     if (mode == GameMode.teamVsTeam) {
-      return index == 0
-          ? 'Equipo A'
-          : 'Equipo B';
+      return index == 0 ? 'Equipo A' : 'Equipo B';
     }
     return 'Jugador ${index + 1}';
+  }
+
+  static ScoringUiMode _parseScoringUiMode(String? name) {
+    if (name == null) return ScoringUiMode.full;
+    return ScoringUiMode.values.firstWhere(
+      (m) => m.name == name,
+      orElse: () => ScoringUiMode.full,
+    );
+  }
+}
+
+/// Una ronda del Modo Fácil (puntos de ambos equipos).
+class EasyRound {
+  const EasyRound({required this.roundId, required this.events});
+
+  final String roundId;
+  final List<ScoreEvent> events;
+
+  int pointsFor(String teamId) {
+    return events
+        .where((e) => e.teamId == teamId)
+        .fold(0, (sum, e) => sum + e.points);
   }
 }

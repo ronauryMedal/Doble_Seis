@@ -1,0 +1,20 @@
+---
+description: Clean Architecture y capas del proyecto Domino
+globs: "lib/**/*.dart"
+alwaysApply: false
+---
+
+# Architecture
+
+Sigue Clean Architecture con estas capas:
+
+- `lib/data/` — modelos, repos, fuentes de datos
+- `lib/domain/` — entidades, enums, casos de uso / reglas
+- `lib/presentation/` — UI, BLoC, widgets, pantallas
+
+Reglas:
+
+- La UI no conoce detalles de persistencia.
+- El domain no depende de Flutter ni de packages de data.
+- La lógica de negocio vive fuera de los widgets.
+- Nuevas features respetan la estructura existente.
