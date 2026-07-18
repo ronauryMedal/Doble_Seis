@@ -61,6 +61,26 @@ rooms/{roomCode}/status         ← open | closed
 2. Completa `ensureSignedIn` / `pushHistoryEntry` / `pullHistoryEntries`
 3. En Historial/Stats: `await repository.syncHistoryFromCloud()` antes de pintar
 
+## Alerta GitHub: “Clave API de Google” en el repo
+
+Las API keys de **Firebase cliente** no dan acceso de admin, pero GitHub las
+marca igual. En este proyecto:
+
+- `lib/firebase_options.dart` **ya no** incluye la key
+- La key vive en `lib/core/config/firebase_api_key.local.dart` (gitignored)
+- `android/app/google-services.json` también está gitignored
+  (usa `google-services.json.example` como plantilla)
+
+### Cerrar la alerta (hazlo tú en la consola)
+
+1. [Google Cloud Console → Credenciales](https://console.cloud.google.com/apis/credentials?project=doble-seis-6788b)
+2. Abre la API key expuesta → **Rotar clave** (o restringir a app Android
+   `com.domino.score.domino_score` + tu SHA-1)
+3. Descarga de nuevo `google-services.json` desde Firebase → `android/app/`
+4. Actualiza `firebase_api_key.local.dart` con la key nueva
+5. En GitHub → Security → Secret scanning → marca la alerta como **revocada**
+6. Haz commit/push de estos cambios (sin volver a subir la key)
+
 ## Login con Google (historial entre dispositivos)
 
 1. Firebase Console → **Authentication** → **Agregar proveedor** → **Google** → Habilitar
