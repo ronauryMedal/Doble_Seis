@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "662605938274",
+    "project_id": "doble-seis-6788b",
+    "storage_bucket": "doble-seis-6788b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:662605938274:android:f78dd85e8ccff4371fdb3b",
+        "android_client_info": {
+          "package_name": "com.domino.score.domino_score"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDECn4Xg1-kOiwJRUkVrxLp2r6TpyAdWnk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -15,6 +15,7 @@ class CelebrationOverlay extends StatelessWidget {
     this.winnerName,
     this.onRematch,
     this.onChangePlayers,
+    this.waitingForHostRematch = false,
   });
 
   final CelebrationType type;
@@ -22,6 +23,9 @@ class CelebrationOverlay extends StatelessWidget {
   final String? winnerName;
   final VoidCallback? onRematch;
   final VoidCallback? onChangePlayers;
+
+  /// Espectador: espera revancha del anfitrión (misma sala).
+  final bool waitingForHostRematch;
 
   bool get _isGameEnd => type == CelebrationType.gameWon;
 
@@ -86,7 +90,8 @@ class CelebrationOverlay extends StatelessWidget {
                     onRematch != null &&
                     onChangePlayers != null) ...[
                   Text(
-                    '¿Otra con los mismos?',
+                    '¿Otra con los mismos?\n'
+                    'Si terminas la sala, los espectadores deberán escanear el QR otra vez.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
@@ -98,11 +103,33 @@ class CelebrationOverlay extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   OutlinedButton(
                     onPressed: onChangePlayers,
-                    child: const Text('Cambiar jugadores'),
+                    child: const Text('Terminar sala'),
+                  ),
+                ] else if (_isGameEnd && waitingForHostRematch) ...[
+                  Text(
+                    'Esperando revancha del anfitrión…\n'
+                    'Si cierra la sala, tendrás que escanear el QR otra vez.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextButton(
+                    onPressed: onDismiss,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textMuted,
+                    ),
+                    child: const Text('Salir y escanear QR'),
                   ),
                 ] else if (_isGameEnd) ...[
                   Text(
-                    'Partida terminada. Escanea otro QR para seguir.',
+                    'La sala se cerró. Escanea el QR del anfitrión '
+                    'para unirte de nuevo.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
@@ -114,7 +141,7 @@ class CelebrationOverlay extends StatelessWidget {
                       foregroundColor: AppColors.ink,
                     ),
                     icon: const Icon(Icons.qr_code_scanner_rounded),
-                    label: const Text('Escanear otra sala'),
+                    label: const Text('Escanear sala'),
                   ),
                 ] else
                   TextButton(

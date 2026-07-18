@@ -32,6 +32,9 @@ class CloudLiveRoomService implements LiveRoomService {
   }
 
   @override
+  Stream<String> watchRoomClosed() => const Stream.empty();
+
+  @override
   Future<void> pushScoreUpdate({
     required GameSession session,
     required RoomRole role,

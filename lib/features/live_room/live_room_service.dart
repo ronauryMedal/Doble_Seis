@@ -21,6 +21,9 @@ abstract class LiveRoomService {
   /// Emite cada actualización del marcador remoto.
   Stream<GameSession> watchSession();
 
+  /// Aviso de que la sala se cerró (anfitrión terminó o se perdió la conexión).
+  Stream<String> watchRoomClosed();
+
   /// Solo el anfitrión puede escribir.
   Future<void> pushScoreUpdate({
     required GameSession session,

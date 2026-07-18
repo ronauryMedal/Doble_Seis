@@ -41,7 +41,25 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
   Widget build(BuildContext context) {
     return BlocListener<GameBloc, GameState>(
       listenWhen: (prev, curr) =>
-          curr.liveRoomError != null && prev.liveRoomError != curr.liveRoomError,
+          !prev.liveRoomRequiresRejoin && curr.liveRoomRequiresRejoin,
+      listener: (context, state) {
+        final message = state.liveRoomError ??
+            'El anfitrión cerró la sala. Escanea el QR de nuevo.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: AppColors.neonAmber,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        final bloc = context.read<GameBloc>();
+        _returnSpectatorToScanner(context, bloc, alreadyReset: true);
+      },
+      child: BlocListener<GameBloc, GameState>(
+      listenWhen: (prev, curr) =>
+          curr.liveRoomError != null &&
+          prev.liveRoomError != curr.liveRoomError &&
+          !curr.liveRoomRequiresRejoin,
       listener: (context, state) {
         final error = state.liveRoomError;
         if (error == null) return;
@@ -191,6 +209,8 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                   CelebrationOverlay(
                     type: state.activeCelebration!,
                     winnerName: session.winner?.name,
+                    waitingForHostRematch: isSpectator &&
+                        state.activeCelebration == CelebrationType.gameWon,
                     onDismiss: () {
                       final wasWin =
                           state.activeCelebration == CelebrationType.gameWon;
@@ -213,6 +233,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                                 CelebrationType.gameWon &&
                             !isSpectator
                         ? () {
+                            // Cierra la sala: los espectadores deberán escanear QR otra vez.
                             bloc.add(const GameReset());
                             Navigator.of(context).pop();
                           }
@@ -228,24 +249,31 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
         },
       ),
       ),
+      ),
     );
   }
 
   Future<void> _returnSpectatorToScanner(
     BuildContext context,
-    GameBloc bloc,
-  ) async {
+    GameBloc bloc, {
+    bool alreadyReset = false,
+  }) async {
     final navigator = Navigator.of(context);
     final manager = bloc.liveRoomManager;
 
-    // GameReset se encarga de desconectar la sala y limpiar el estado.
-    bloc.add(const GameReset());
+    if (!alreadyReset) {
+      // Sale voluntariamente: desconecta y limpia estado.
+      bloc.add(const GameReset());
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+    }
 
     if (!navigator.mounted) return;
-    navigator.pushReplacement(
+    navigator.pushAndRemoveUntil(
       MaterialPageRoute<void>(
         builder: (_) => ScanRoomQrScreen(liveRoomManager: manager),
+        settings: const RouteSettings(name: 'scan_room_after_close'),
       ),
+      (route) => route.isFirst,
     );
   }
 

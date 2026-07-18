@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -64,6 +65,9 @@ android {
 dependencies {
     // ML Kit embebido — evita fallos del escáner QR en APK release.
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // Firebase BoM (versiones alineadas; los plugins Flutter también aportan deps).
+    implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
 }
 
 kotlin {

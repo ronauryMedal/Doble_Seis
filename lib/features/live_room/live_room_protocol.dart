@@ -10,6 +10,7 @@ class LiveRoomProtocol {
   static const joinType = 'join';
   static const joinedType = 'joined';
   static const errorType = 'error';
+  static const roomClosedType = 'room_closed';
 
   static String encodeJoin({required String roomCode}) => jsonEncode({
         'type': joinType,
@@ -28,6 +29,15 @@ class LiveRoomProtocol {
 
   static String encodeError(String message) => jsonEncode({
         'type': errorType,
+        'message': message,
+      });
+
+  static String encodeRoomClosed({
+    String message =
+        'El anfitrión cerró la sala. Escanea el QR o ingresa el código de nuevo.',
+  }) =>
+      jsonEncode({
+        'type': roomClosedType,
         'message': message,
       });
 

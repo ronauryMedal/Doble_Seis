@@ -61,6 +61,16 @@ final class LiveRoomSessionSynced extends GameEvent {
   List<Object?> get props => [session];
 }
 
+/// El anfitrión cerró la sala o se perdió la conexión WiFi.
+final class LiveRoomConnectionLost extends GameEvent {
+  const LiveRoomConnectionLost(this.reason);
+
+  final String reason;
+
+  @override
+  List<Object?> get props => [reason];
+}
+
 /// Continúa la partida guardada en Hive.
 final class GameRestored extends GameEvent {
   const GameRestored();

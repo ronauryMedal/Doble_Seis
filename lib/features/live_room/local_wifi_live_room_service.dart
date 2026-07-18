@@ -20,11 +20,14 @@ class LocalWifiLiveRoomService implements LiveRoomService {
   StreamSubscription<dynamic>? _clientSubscription;
   final StreamController<GameSession> _sessionController =
       StreamController<GameSession>.broadcast();
+  final StreamController<String> _roomClosedController =
+      StreamController<String>.broadcast();
 
   String? _roomCode;
   String? _hostIp;
   GameSession? _currentSession;
   bool _connected = false;
+  bool _notifiedRoomClosed = false;
 
   @override
   LiveRoomConnectionMode get mode => LiveRoomConnectionMode.localWifi;
@@ -41,6 +44,7 @@ class LocalWifiLiveRoomService implements LiveRoomService {
     _currentSession = initialSession;
     _roomCode = _generateRoomCode();
     _hostIp = await _resolveLocalIp();
+    _notifiedRoomClosed = false;
 
     if (_hostIp == null) {
       throw LiveRoomException(
@@ -81,6 +85,7 @@ class LocalWifiLiveRoomService implements LiveRoomService {
     final uri = Uri.parse('ws://$host:$port');
     final channel = WebSocketChannel.connect(uri);
     _clientChannel = channel;
+    _notifiedRoomClosed = false;
 
     final joined = Completer<void>();
     final firstSession = Completer<GameSession>();
@@ -97,6 +102,10 @@ class LocalWifiLiveRoomService implements LiveRoomService {
               _sessionController.add(session);
               if (!firstSession.isCompleted) firstSession.complete(session);
             }
+          case LiveRoomProtocol.roomClosedType:
+            final reason = message['message'] as String? ??
+                'El anfitrión cerró la sala. Escanea el QR o ingresa el código de nuevo.';
+            _emitRoomClosed(reason);
           case LiveRoomProtocol.errorType:
             final error = message['message'] as String? ?? 'Error de conexión';
             if (!joined.isCompleted) {
@@ -109,13 +118,21 @@ class LocalWifiLiveRoomService implements LiveRoomService {
           joined.completeError(
             LiveRoomException('No se pudo conectar a $host:$port'),
           );
+        } else {
+          _emitRoomClosed(
+            'Se perdió la conexión con la sala. Escanea el QR de nuevo.',
+          );
         }
       },
       onDone: () {
-        _connected = false;
         if (!joined.isCompleted) {
+          _connected = false;
           joined.completeError(
             LiveRoomException('La sala se cerró o perdió conexión.'),
+          );
+        } else {
+          _emitRoomClosed(
+            'El anfitrión cerró la sala. Escanea el QR o ingresa el código de nuevo.',
           );
         }
       },
@@ -147,6 +164,9 @@ class LocalWifiLiveRoomService implements LiveRoomService {
   Stream<GameSession> watchSession() => _sessionController.stream;
 
   @override
+  Stream<String> watchRoomClosed() => _roomClosedController.stream;
+
+  @override
   Future<void> pushScoreUpdate({
     required GameSession session,
     required RoomRole role,
@@ -161,6 +181,19 @@ class LocalWifiLiveRoomService implements LiveRoomService {
 
   @override
   Future<void> leaveRoom() async {
+    // Avisa a espectadores antes de tumbar el servidor.
+    if (_server != null && _clients.isNotEmpty) {
+      final payload = LiveRoomProtocol.encodeRoomClosed();
+      for (final client in _clients.toList()) {
+        try {
+          client.add(payload);
+        } on Object {
+          // Continuar cerrando el resto.
+        }
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+
     _connected = false;
 
     for (final client in _clients.toList()) {
@@ -183,6 +216,15 @@ class LocalWifiLiveRoomService implements LiveRoomService {
     _roomCode = null;
     _hostIp = null;
     _currentSession = null;
+  }
+
+  void _emitRoomClosed(String reason) {
+    if (_notifiedRoomClosed) return;
+    _notifiedRoomClosed = true;
+    _connected = false;
+    if (!_roomClosedController.isClosed) {
+      _roomClosedController.add(reason);
+    }
   }
 
   void _handleHttpRequest(HttpRequest request) async {

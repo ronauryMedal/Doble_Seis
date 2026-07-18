@@ -37,6 +37,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     on<GameRestored>(_onRestored);
     on<LiveRoomSpectatorStarted>(_onLiveRoomSpectatorStarted);
     on<LiveRoomSessionSynced>(_onLiveRoomSessionSynced);
+    on<LiveRoomConnectionLost>(_onLiveRoomConnectionLost);
     on<ScoreAdded>(_onScoreAdded);
     on<ScoreEventRemoved>(_onScoreEventRemoved);
     on<RoundAdded>(_onRoundAdded);
@@ -54,6 +55,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   final LiveRoomManager _liveRoom;
   Timer? _shotClockTimer;
   StreamSubscription<GameSession>? _liveRoomSubscription;
+  StreamSubscription<String>? _liveRoomClosedSubscription;
 
   /// Acceso al gestor de sala (p. ej. para que el espectador vuelva a unirse).
   LiveRoomManager get liveRoomManager => _liveRoom;
@@ -126,6 +128,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     Emitter<GameState> emit,
   ) async {
     _liveRoomSubscription?.cancel();
+    _liveRoomClosedSubscription?.cancel();
     await _repository.saveSession(event.session);
 
     final elapsed = _elapsedFromSession(event.session);
@@ -135,12 +138,16 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       liveRoomInfo: event.info,
       shotClockSeconds: elapsed,
       isShotClockActive: true,
+      liveRoomRequiresRejoin: false,
     ));
     _startGameTimer();
 
-    _liveRoomSubscription =
-        _liveRoom.activeService?.watchSession().listen((session) {
+    final service = _liveRoom.activeService;
+    _liveRoomSubscription = service?.watchSession().listen((session) {
       add(LiveRoomSessionSynced(session));
+    });
+    _liveRoomClosedSubscription = service?.watchRoomClosed().listen((reason) {
+      add(LiveRoomConnectionLost(reason));
     });
   }
 
@@ -151,8 +158,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     if (!state.isSpectator) return;
     await _repository.saveSession(event.session);
 
-    // Si la partida acaba de terminar en el lado del anfitrión, el espectador
-    // ve la misma animación de ganador.
+    // Anfitrión terminó la partida → celebración.
     final justEnded = !state.session.isGameOver && event.session.isGameOver;
     if (justEnded) {
       await HapticUtils.celebration();
@@ -163,7 +169,43 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       return;
     }
 
+    // Anfitrión dio revancha → misma sala, nueva partida; quitar overlay.
+    final rematchStarted = state.session.isGameOver && !event.session.isGameOver;
+    final newSessionId = state.session.id != event.session.id;
+    if (rematchStarted || (newSessionId && !event.session.isGameOver)) {
+      emit(state.copyWith(
+        session: event.session,
+        clearCelebration: true,
+        liveRoomRequiresRejoin: false,
+        clearLiveRoomError: true,
+      ));
+      return;
+    }
+
     emit(state.copyWith(session: event.session));
+  }
+
+  Future<void> _onLiveRoomConnectionLost(
+    LiveRoomConnectionLost event,
+    Emitter<GameState> emit,
+  ) async {
+    if (!state.isSpectator && !state.isLiveHost) return;
+
+    _liveRoomSubscription?.cancel();
+    _liveRoomClosedSubscription?.cancel();
+    _liveRoomSubscription = null;
+    _liveRoomClosedSubscription = null;
+
+    // El cliente ya perdió el socket; limpia el manager sin reavisar.
+    await _liveRoom.disconnect();
+
+    emit(state.copyWith(
+      clearLiveRoomInfo: true,
+      connectionMode: LiveRoomConnectionMode.offline,
+      liveRoomError: event.reason,
+      liveRoomRequiresRejoin: true,
+      clearCelebration: true,
+    ));
   }
 
   Future<void> _onRestored(
@@ -447,6 +489,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   Future<void> _onReset(GameReset event, Emitter<GameState> emit) async {
     _stopGameTimer();
     _liveRoomSubscription?.cancel();
+    _liveRoomClosedSubscription?.cancel();
+    _liveRoomSubscription = null;
+    _liveRoomClosedSubscription = null;
     await _liveRoom.disconnect();
     await _repository.clearCurrent();
     emit(GameState.initial());

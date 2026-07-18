@@ -14,6 +14,7 @@ class GameState extends Equatable {
     this.connectionMode = LiveRoomConnectionMode.offline,
     this.liveRoomInfo,
     this.liveRoomError,
+    this.liveRoomRequiresRejoin = false,
   });
 
   final GameSession session;
@@ -26,6 +27,9 @@ class GameState extends Equatable {
   final LiveRoomConnectionMode connectionMode;
   final LiveRoomConnectionInfo? liveRoomInfo;
   final String? liveRoomError;
+
+  /// El espectador debe escanear QR / código de nuevo.
+  final bool liveRoomRequiresRejoin;
 
   bool get isSpectator => liveRoomInfo?.role == RoomRole.spectator;
 
@@ -58,6 +62,7 @@ class GameState extends Equatable {
     bool clearLiveRoomInfo = false,
     String? liveRoomError,
     bool clearLiveRoomError = false,
+    bool? liveRoomRequiresRejoin,
   }) =>
       GameState(
         session: session ?? this.session,
@@ -77,6 +82,8 @@ class GameState extends Equatable {
         liveRoomInfo: clearLiveRoomInfo ? null : (liveRoomInfo ?? this.liveRoomInfo),
         liveRoomError:
             clearLiveRoomError ? null : (liveRoomError ?? this.liveRoomError),
+        liveRoomRequiresRejoin:
+            liveRoomRequiresRejoin ?? this.liveRoomRequiresRejoin,
       );
 
   @override
@@ -91,5 +98,6 @@ class GameState extends Equatable {
         connectionMode,
         liveRoomInfo,
         liveRoomError,
+        liveRoomRequiresRejoin,
       ];
 }
