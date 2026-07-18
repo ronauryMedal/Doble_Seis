@@ -44,6 +44,7 @@ dependencies:
   google_generative_ai: ^0.4.7
   permission_handler: ^12.0.3
   google_mobile_ads: ^9.0.0
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -61,7 +62,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: assets/images/app_icon.png
-  adaptive_icon_background: "#0D1117"
+  adaptive_icon_background: "#0E1117"
   adaptive_icon_foreground: assets/images/app_icon.png
   remove_alpha_ios: true
 

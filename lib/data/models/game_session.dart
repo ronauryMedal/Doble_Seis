@@ -113,7 +113,13 @@ class GameSession {
       };
 
   factory GameSession.fromMap(Map<dynamic, dynamic> map) {
-    final scoringUiMode = _parseScoringUiMode(map['scoringUiMode'] as String?);
+    final events = (map['events'] as List? ?? [])
+        .map((e) => ScoreEvent.fromMap(Map<dynamic, dynamic>.from(e as Map)))
+        .toList();
+    final scoringUiMode = _parseScoringUiMode(
+      map['scoringUiMode'] as String?,
+      events: events,
+    );
 
     if (map.containsKey('participants')) {
       return GameSession(
@@ -123,9 +129,7 @@ class GameSession {
             .map((p) => PlayerScore.fromMap(Map<dynamic, dynamic>.from(p as Map)))
             .toList(),
         winScore: map['winScore'] as int,
-        events: (map['events'] as List? ?? [])
-            .map((e) => ScoreEvent.fromMap(Map<dynamic, dynamic>.from(e as Map)))
-            .toList(),
+        events: events,
         createdAt: map['createdAt'] != null
             ? DateTime.parse(map['createdAt'] as String)
             : null,
@@ -142,9 +146,7 @@ class GameSession {
         PlayerScore.fromMap(Map<dynamic, dynamic>.from(map['teamB'] as Map)),
       ],
       winScore: map['winScore'] as int,
-      events: (map['events'] as List? ?? [])
-          .map((e) => ScoreEvent.fromMap(Map<dynamic, dynamic>.from(e as Map)))
-          .toList(),
+      events: events,
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'] as String)
           : null,
@@ -228,12 +230,22 @@ class GameSession {
     return 'Jugador ${index + 1}';
   }
 
-  static ScoringUiMode _parseScoringUiMode(String? name) {
-    if (name == null) return ScoringUiMode.full;
-    return ScoringUiMode.values.firstWhere(
-      (m) => m.name == name,
-      orElse: () => ScoringUiMode.full,
-    );
+  static ScoringUiMode _parseScoringUiMode(
+    String? name, {
+    List<ScoreEvent> events = const [],
+  }) {
+    if (name != null) {
+      return ScoringUiMode.values.firstWhere(
+        (m) => m.name == name,
+        orElse: () => ScoringUiMode.easy,
+      );
+    }
+    // Partidas antiguas sin el campo: si todas las anotaciones son por ronda → fácil.
+    if (events.isNotEmpty && events.every((e) => e.roundId != null)) {
+      return ScoringUiMode.easy;
+    }
+    // Por defecto la app arranca en modo fácil.
+    return ScoringUiMode.easy;
   }
 }
 

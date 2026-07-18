@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/player_colors.dart';
 import '../../../core/utils/score_event_formatter.dart';
 import '../../../domain/enums/game_mode.dart';
@@ -16,6 +17,7 @@ import '../../../features/vision/domino_vision_scan_screen.dart';
 import '../../../features/vision/vision_scan_icon_button.dart';
 import '../../bloc/game/game_bloc.dart';
 import '../live_room/scan_room_qr_screen.dart';
+import '../../widgets/app_background.dart';
 import '../../widgets/celebration_overlay.dart';
 import '../../widgets/game_log_sheet.dart';
 import '../../widgets/live_room_qr_sheet.dart';
@@ -83,7 +85,8 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
               _attemptExit(context, inProgress: inProgress);
             },
             child: Scaffold(
-            body: Stack(
+            body: AppBackground(
+              child: Stack(
               children: [
                 SafeArea(
                   child: Column(
@@ -216,10 +219,9 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                         : null,
                   )
                       .animate()
-                      .fadeIn(duration: 300.ms)
-                      .then()
-                      .shake(duration: 500.ms, hz: 2),
+                      .fadeIn(duration: AppMotion.normal),
               ],
+            ),
             ),
             ),
           );

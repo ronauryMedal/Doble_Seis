@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/score_event_formatter.dart';
 import '../../../data/models/game_history_entry.dart';
 import '../../../data/models/game_session.dart';
 import '../../../data/models/score_event.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../domain/enums/special_event_type.dart';
+import '../../widgets/app_background.dart';
 
 /// Historial de partidas ganadas guardadas en Hive.
 class GameHistoryScreen extends StatelessWidget {
@@ -21,31 +23,31 @@ class GameHistoryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Partidas ganadas'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
       ),
-      body: history.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  'Aún no hay partidas guardadas.\n'
-                  'Al terminar una partida se guardará aquí.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
+      body: AppBackground(
+        child: history.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: Text(
+                    'Aún no hay partidas guardadas.\n'
+                    'Al terminar una partida se guardará aquí.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                  ),
                 ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                itemCount: history.length,
+                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+                itemBuilder: (context, index) {
+                  return _HistoryCard(entry: history[index]);
+                },
               ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: history.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                return _HistoryCard(entry: history[index]);
-              },
-            ),
+      ),
     );
   }
 }
@@ -79,92 +81,111 @@ class _HistoryCardState extends State<_HistoryCard> {
         '${date.day}/${date.month}/${date.year} · ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     final dominoCount = entry.events.length;
 
-    return Material(
-      color: AppColors.nightCard,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () => setState(() => _expanded = !_expanded),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.emoji_events_outlined,
-                    color: AppColors.neonAmber,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.winnerName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.neonAmber,
+    return SoftCard(
+      padding: EdgeInsets.zero,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: AppRadii.borderLg,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.emoji_events_outlined,
+                      color: AppColors.neonAmber,
+                      size: 22,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.winnerName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.neonAmber,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${entry.mode.label} · a ${entry.winScore} · ${_formatDuration(entry.durationSeconds)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textMuted,
-                              ),
-                        ),
-                      ],
+                          Text(
+                            '${entry.mode.label} · a ${entry.winScore} · ${_formatDuration(entry.durationSeconds)}',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.textMuted,
+                                    ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                    color: AppColors.textMuted,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$dateStr · $dominoCount dominadas',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                    ),
-              ),
-              if (_expanded) ...[
-                const SizedBox(height: 12),
-                const Divider(height: 1),
-                const SizedBox(height: 10),
-                Text(
-                  'Marcador final',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontSize: 11,
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0,
+                      duration: AppMotion.normal,
+                      child: const Icon(
+                        Icons.expand_more,
                         color: AppColors.textMuted,
                       ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                _FinalScoresGrid(scores: entry.finalScores),
-                const SizedBox(height: 14),
+                const SizedBox(height: 4),
                 Text(
-                  'Cada domina (${entry.events.length})',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  '$dateStr · $dominoCount dominadas',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
                         fontSize: 11,
-                        color: AppColors.textMuted,
                       ),
                 ),
-                const SizedBox(height: 8),
-                _DominoEventsGrid(
-                  events: entry.events,
-                  session: _session,
+                AnimatedSize(
+                  duration: AppMotion.normal,
+                  curve: AppMotion.easeOut,
+                  alignment: Alignment.topCenter,
+                  child: _expanded
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            const Divider(height: 1),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'Marcador final',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(
+                                    fontSize: 11,
+                                    color: AppColors.textMuted,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            _FinalScoresGrid(scores: entry.finalScores),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              'Cada domina (${entry.events.length})',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(
+                                    fontSize: 11,
+                                    color: AppColors.textMuted,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            _DominoEventsGrid(
+                              events: entry.events,
+                              session: _session,
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// Colores asignados a cada jugador/equipo en el marcador.
+/// Colores de jugadores — menta, coral y acentos amigables.
 class PlayerColors {
   PlayerColors._();
 
@@ -11,8 +11,8 @@ class PlayerColors {
     AppColors.teamB,
     AppColors.neonRose,
     AppColors.capicua,
-    AppColors.neonAmber,
-    Color(0xFF7CB3FF),
+    Color(0xFF818CF8),
+    Color(0xFF34D399),
   ];
 
   static Color forIndex(int index) => palette[index % palette.length];

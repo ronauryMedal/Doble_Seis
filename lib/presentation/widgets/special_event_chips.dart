@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../domain/enums/special_event_type.dart';
 
 /// Chips Capicúa / Tranque — activar antes de ingresar puntos.
@@ -35,7 +36,7 @@ class SpecialEventChips extends StatelessWidget {
             child: _EventChip(
               label: SpecialEventType.capicua.label,
               color: AppColors.capicua,
-              icon: Icons.auto_awesome,
+              icon: Icons.auto_awesome_rounded,
               compact: compact,
               armed: _isArmed(SpecialEventType.capicua),
               onTap: enabled
@@ -48,7 +49,7 @@ class SpecialEventChips extends StatelessWidget {
             child: _EventChip(
               label: SpecialEventType.tranque.label,
               color: AppColors.tranque,
-              icon: Icons.block,
+              icon: Icons.block_rounded,
               compact: compact,
               armed: _isArmed(SpecialEventType.tranque),
               onTap: enabled
@@ -81,19 +82,22 @@ class _EventChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(compact ? AppRadii.sm : AppRadii.md);
     return Material(
-      color: color.withValues(alpha: armed ? 0.28 : 0.12),
-      borderRadius: BorderRadius.circular(compact ? 10 : 14),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(compact ? 10 : 14),
-        child: Container(
+        borderRadius: radius,
+        child: AnimatedContainer(
+          duration: AppMotion.normal,
+          curve: AppMotion.easeOut,
           padding: EdgeInsets.symmetric(vertical: compact ? 6 : 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(compact ? 10 : 14),
+            color: color.withValues(alpha: armed ? 0.24 : 0.1),
+            borderRadius: radius,
             border: Border.all(
-              color: color.withValues(alpha: armed ? 0.75 : 0.3),
-              width: armed ? 2 : 1,
+              color: color.withValues(alpha: armed ? 0.7 : 0.28),
+              width: armed ? 1.5 : 1,
             ),
           ),
           child: Row(

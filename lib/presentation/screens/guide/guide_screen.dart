@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../widgets/app_background.dart';
 import '../../widgets/app_logo.dart';
 
 /// Guía de uso ilustrada — explica qué es la app y cómo usarla paso a paso.
@@ -235,7 +237,6 @@ class _GuideScreenState extends State<GuideScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cómo usar la app'),
-        iconTheme: const IconThemeData(color: AppColors.neonCyan),
         automaticallyImplyLeading: !_isFirstRun,
         actions: _isFirstRun
             ? [
@@ -249,29 +250,36 @@ class _GuideScreenState extends State<GuideScreen> {
               ]
             : null,
       ),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: _ViewModeToggle(
-                pageMode: _pageMode,
-                onChanged: (value) => setState(() => _pageMode = value),
+      body: AppBackground(
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                ),
+                child: _ViewModeToggle(
+                  pageMode: _pageMode,
+                  onChanged: (value) => setState(() => _pageMode = value),
+                ),
               ),
-            ),
-            Expanded(
-              child: _pageMode
-                  ? _PagedGuide(
-                      isFirstRun: _isFirstRun,
-                      onFinish: widget.onFinish,
-                    )
-                  : _ListGuide(
-                      isFirstRun: _isFirstRun,
-                      onFinish: widget.onFinish,
-                    ),
-            ),
-          ],
+              Expanded(
+                child: _pageMode
+                    ? _PagedGuide(
+                        isFirstRun: _isFirstRun,
+                        onFinish: widget.onFinish,
+                      )
+                    : _ListGuide(
+                        isFirstRun: _isFirstRun,
+                        onFinish: widget.onFinish,
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

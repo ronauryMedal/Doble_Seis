@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/utils/haptic_utils.dart';
 
 /// Teclado numérico propio — evita el teclado del sistema.
@@ -72,13 +73,13 @@ class _SmartKeyboardState extends State<SmartKeyboard> {
       padding: EdgeInsets.fromLTRB(pad, 4, pad, widget.compact ? 6 : 24),
       decoration: BoxDecoration(
         color: AppColors.nightSurface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
         border: Border(
           top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.28),
             blurRadius: 24,
             offset: const Offset(0, -8),
           ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/player_colors.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../domain/stats/game_stats.dart';
+import '../../widgets/app_background.dart';
 
 /// Estadísticas por equipo y por persona desde partidas ganadas.
 class GameStatsScreen extends StatelessWidget {
@@ -20,8 +22,6 @@ class GameStatsScreen extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Estadísticas'),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
           bottom: TabBar(
             indicatorColor: AppColors.neonCyan,
             labelColor: AppColors.neonCyan,
@@ -32,34 +32,36 @@ class GameStatsScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: stats.totalGames == 0
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text(
-                    'Juega y gana partidas para ver estadísticas.\n'
-                    'En equipos, escribe el nombre de cada jugador al crear la partida.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textMuted,
-                        ),
+        body: AppBackground(
+          child: stats.totalGames == 0
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: Text(
+                      'Juega y gana partidas para ver estadísticas.\n'
+                      'En equipos, escribe el nombre de cada jugador al crear la partida.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                    ),
                   ),
+                )
+              : TabBarView(
+                  children: [
+                    _TeamStatsTab(
+                      records: stats.teams,
+                      matchups: stats.teamMatchups,
+                      totalGames: stats.totalGames,
+                    ),
+                    _PersonStatsTab(
+                      records: stats.persons,
+                      matchups: stats.personMatchups,
+                      totalGames: stats.totalGames,
+                    ),
+                  ],
                 ),
-              )
-            : TabBarView(
-                children: [
-                  _TeamStatsTab(
-                    records: stats.teams,
-                    matchups: stats.teamMatchups,
-                    totalGames: stats.totalGames,
-                  ),
-                  _PersonStatsTab(
-                    records: stats.persons,
-                    matchups: stats.personMatchups,
-                    totalGames: stats.totalGames,
-                  ),
-                ],
-              ),
+        ),
       ),
     );
   }

@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../data/models/game_session.dart';
 
-/// Panel de puntuación — nunca hace overflow, se adapta al espacio.
+/// Panel de puntuación moderno con feedback suave.
 class PlayerScorePanel extends StatefulWidget {
   const PlayerScorePanel({
     super.key,
@@ -36,7 +37,7 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
   int? _floatingDelta;
   int _animationToken = 0;
   bool _justScored = false;
-  Timer? _glowTimer;
+  Timer? _scoreTimer;
 
   @override
   void didUpdateWidget(covariant PlayerScorePanel oldWidget) {
@@ -51,8 +52,8 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
           _animationToken++;
           _justScored = true;
         });
-        _glowTimer?.cancel();
-        _glowTimer = Timer(const Duration(milliseconds: 700), () {
+        _scoreTimer?.cancel();
+        _scoreTimer = Timer(const Duration(milliseconds: 550), () {
           if (mounted) setState(() => _justScored = false);
         });
       }
@@ -61,7 +62,7 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
 
   @override
   void dispose() {
-    _glowTimer?.cancel();
+    _scoreTimer?.cancel();
     super.dispose();
   }
 
@@ -77,43 +78,47 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
     return GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(
-        duration: 350.ms,
-        curve: Curves.easeOut,
+        duration: AppMotion.normal,
+        curve: AppMotion.soft,
         margin: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(emphasis ? 16 : 12),
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
               color.withValues(
                 alpha: _justScored
-                    ? 0.32
-                    : (isLeading || isSelected ? 0.2 : 0.06),
+                    ? 0.28
+                    : (isSelected || isLeading ? 0.16 : 0.06),
               ),
               AppColors.nightCard,
             ],
           ),
+          borderRadius: BorderRadius.circular(emphasis ? AppRadii.lg : AppRadii.md),
           border: Border.all(
             color: color.withValues(
               alpha: _justScored
-                  ? 0.85
-                  : (isSelected ? 0.7 : (isLeading ? 0.45 : 0.12)),
+                  ? 0.75
+                  : (isSelected ? 0.55 : (isLeading ? 0.35 : 0.12)),
             ),
-            width: isSelected || _justScored ? 2 : 1,
+            width: isSelected || _justScored ? 1.5 : 1,
           ),
-          boxShadow: _justScored
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.45),
-                    blurRadius: 18,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+            if (_justScored || isSelected)
+              BoxShadow(
+                color: color.withValues(alpha: 0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+          ],
         ),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(8, emphasis ? 8 : 4, 8, emphasis ? 8 : 6),
+          padding: EdgeInsets.fromLTRB(8, emphasis ? 8 : 5, 8, emphasis ? 8 : 6),
           child: Column(
             children: [
               Text(
@@ -123,8 +128,8 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: emphasis ? 12 : 10,
-                  fontWeight: FontWeight.w600,
-                  color: color.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w700,
+                  color: color,
                 ),
               ),
               Expanded(
@@ -138,9 +143,10 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
                         child: Text(
                           '${player.score}',
                           style: TextStyle(
-                            fontSize: emphasis ? 48 : 40,
-                            fontWeight: FontWeight.w200,
+                            fontSize: emphasis ? 52 : 42,
+                            fontWeight: FontWeight.w700,
                             height: 1,
+                            letterSpacing: -1.5,
                             color: AppColors.textPrimary,
                           ),
                         )
@@ -148,21 +154,21 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
                               key: ValueKey('${player.id}_${player.score}'),
                             )
                             .scale(
-                              begin: const Offset(1.18, 1.18),
+                              begin: const Offset(1.1, 1.1),
                               end: const Offset(1, 1),
-                              duration: 260.ms,
-                              curve: Curves.easeOutBack,
+                              duration: AppMotion.normal,
+                              curve: AppMotion.soft,
                             ),
                       ),
                       if (_floatingDelta != null)
                         Positioned(
-                          top: -6,
+                          top: -4,
                           child: IgnorePointer(
                             child: Text(
                               '+$_floatingDelta',
                               style: TextStyle(
-                                fontSize: emphasis ? 22 : 18,
-                                fontWeight: FontWeight.w700,
+                                fontSize: emphasis ? 18 : 15,
+                                fontWeight: FontWeight.w800,
                                 color: color,
                               ),
                             )
@@ -174,14 +180,14 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
                                     }
                                   },
                                 )
-                                .fadeIn(duration: 120.ms)
+                                .fadeIn(duration: AppMotion.fast)
                                 .moveY(
-                                  begin: 6,
-                                  end: -34,
-                                  duration: 900.ms,
-                                  curve: Curves.easeOut,
+                                  begin: 2,
+                                  end: -24,
+                                  duration: 720.ms,
+                                  curve: AppMotion.soft,
                                 )
-                                .fadeOut(delay: 480.ms, duration: 420.ms),
+                                .fadeOut(delay: 360.ms, duration: AppMotion.normal),
                           ),
                         ),
                     ],
@@ -189,11 +195,11 @@ class _PlayerScorePanelState extends State<PlayerScorePanel> {
                 ),
               ),
               ClipRRect(
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: progress,
-                  minHeight: 2,
-                  backgroundColor: Colors.white.withValues(alpha: 0.06),
+                  minHeight: 3,
+                  backgroundColor: Colors.white.withValues(alpha: 0.08),
                   valueColor: AlwaysStoppedAnimation(color),
                 ),
               ),

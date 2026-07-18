@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/navigation/app_page_route.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../data/repositories/game_repository.dart';
 import '../../../features/live_room/live_room_manager.dart';
+import '../../widgets/app_background.dart';
 import '../../widgets/app_logo.dart';
 import '../home/home_screen.dart';
 import 'welcome_screen.dart';
@@ -32,88 +35,81 @@ class _AppLaunchScreenState extends State<AppLaunchScreen> {
   }
 
   Future<void> _launch() async {
-    await Future<void>.delayed(const Duration(milliseconds: 2400));
+    await Future<void>.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
     final showWelcome = !widget.repository.isOnboardingComplete;
-
-    await Navigator.of(context).pushReplacement(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) {
-          if (!showWelcome) {
-            return HomeScreen(
-              repository: widget.repository,
-              liveRoomManager: widget.liveRoomManager,
-            );
-          }
-          return WelcomeScreen(
+    final next = showWelcome
+        ? WelcomeScreen(
+            repository: widget.repository,
+            liveRoomManager: widget.liveRoomManager,
+          )
+        : HomeScreen(
             repository: widget.repository,
             liveRoomManager: widget.liveRoomManager,
           );
-        },
-        transitionsBuilder: (_, animation, _, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 450),
-      ),
-    );
+
+    await Navigator.of(context).pushReplacement(AppPageRoute(page: next));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.nightBackground,
-      body: SafeArea(
+      body: AppBackground(
+        includeSafeArea: true,
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const AppLogo(showName: false, height: 160)
+                const AppLogo(showName: false, height: 148)
                     .animate()
-                    .fadeIn(duration: 600.ms)
+                    .fadeIn(duration: AppMotion.slow)
                     .scale(
-                      begin: const Offset(0.92, 0.92),
+                      begin: const Offset(0.9, 0.9),
                       end: const Offset(1, 1),
-                      duration: 700.ms,
-                      curve: Curves.easeOutCubic,
+                      duration: AppMotion.slow,
+                      curve: AppMotion.emphasized,
                     ),
-                const SizedBox(height: 28),
+                const SizedBox(height: AppSpacing.lg),
                 Text(
-                  AppConstants.appName.toUpperCase(),
+                  AppConstants.appName,
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        letterSpacing: 5,
-                        fontSize: 13,
-                        color: AppColors.textMuted,
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        fontSize: 34,
+                        letterSpacing: -0.8,
                       ),
                 )
                     .animate()
-                    .fadeIn(delay: 300.ms, duration: 500.ms),
-                const SizedBox(height: 16),
+                    .fadeIn(delay: 180.ms, duration: AppMotion.slow),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   AppConstants.appSlogan,
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: 18,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.neonCyan.withValues(alpha: 0.95),
                         fontWeight: FontWeight.w500,
-                        color: AppColors.neonCyan,
-                        height: 1.35,
                       ),
                 )
                     .animate()
-                    .fadeIn(delay: 500.ms, duration: 550.ms)
-                    .slideY(begin: 0.15, end: 0, delay: 500.ms, duration: 550.ms),
-                const SizedBox(height: 48),
+                    .fadeIn(delay: 320.ms, duration: AppMotion.slow)
+                    .slideY(
+                      begin: 0.12,
+                      end: 0,
+                      delay: 320.ms,
+                      duration: AppMotion.slow,
+                      curve: AppMotion.easeOut,
+                    ),
+                const SizedBox(height: AppSpacing.xl),
                 SizedBox(
-                  width: 28,
-                  height: 28,
+                  width: 26,
+                  height: 26,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.neonCyan.withValues(alpha: 0.5),
+                    strokeWidth: 2.2,
+                    color: AppColors.neonCyan.withValues(alpha: 0.55),
                   ),
-                ).animate().fadeIn(delay: 900.ms, duration: 400.ms),
+                ).animate().fadeIn(delay: 700.ms, duration: AppMotion.normal),
               ],
             ),
           ),

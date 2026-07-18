@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_tokens.dart';
 import '../bloc/game/game_bloc.dart';
+import 'app_background.dart';
 
-/// Overlay de celebración — al ganar pregunta revancha o cambiar jugadores.
+/// Overlay de celebración — claro y humano, sin glow neón.
 class CelebrationOverlay extends StatelessWidget {
   const CelebrationOverlay({
     super.key,
@@ -26,140 +29,112 @@ class CelebrationOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color, icon) = switch (type) {
       CelebrationType.capicua => (
-          '¡CAPICÚA!',
+          '¡Capicúa!',
           AppColors.capicua,
-          Icons.auto_awesome,
+          Icons.auto_awesome_rounded,
         ),
       CelebrationType.tranque => (
-          '¡TRANQUE!',
+          '¡Tranque!',
           AppColors.tranque,
-          Icons.block,
+          Icons.block_rounded,
         ),
       CelebrationType.gameWon => (
-          '¡GANADOR!',
+          '¡Ganó!',
           AppColors.neonAmber,
-          Icons.emoji_events_outlined,
+          Icons.emoji_events_rounded,
         ),
     };
 
-    return Container(
-      color: Colors.black.withValues(alpha: 0.75),
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 64, color: color),
-              const SizedBox(height: 16),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 4,
-                  color: color,
-                  shadows: [
-                    Shadow(color: color.withValues(alpha: 0.6), blurRadius: 30),
-                  ],
-                ),
-              ),
-              if (_isGameEnd && winnerName != null) ...[
-                const SizedBox(height: 8),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: SoftCard(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+            borderColor: color,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 40, color: color)
+                    .animate()
+                    .fadeIn(duration: AppMotion.normal)
+                    .scale(
+                      begin: const Offset(0.9, 0.9),
+                      end: const Offset(1, 1),
+                      duration: AppMotion.slow,
+                      curve: AppMotion.emphasized,
+                    ),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
-                  winnerName!,
+                  label,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontSize: 22,
-                        color: AppColors.textPrimary,
+                        color: color,
                       ),
-                ),
-              ],
-              const SizedBox(height: 28),
-              if (_isGameEnd && onRematch != null && onChangePlayers != null) ...[
-                Text(
-                  '¿Volver a jugar con los mismos jugadores?',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
+                ).animate().fadeIn(delay: 60.ms, duration: AppMotion.normal),
+                if (_isGameEnd && winnerName != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    winnerName!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                if (_isGameEnd &&
+                    onRematch != null &&
+                    onChangePlayers != null) ...[
+                  Text(
+                    '¿Otra con los mismos?',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  FilledButton(
                     onPressed: onRematch,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.neonCyan,
-                      foregroundColor: AppColors.nightBackground,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Text(
-                      'Sí, revancha',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('Sí, revancha'),
                   ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton(
                     onPressed: onChangePlayers,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.2),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                    child: const Text('Cambiar jugadores'),
+                  ),
+                ] else if (_isGameEnd) ...[
+                  Text(
+                    'Partida terminada. Escanea otro QR para seguir.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  FilledButton.icon(
+                    onPressed: onDismiss,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.neonAmber,
+                      foregroundColor: AppColors.ink,
                     ),
-                    child: const Text('No, cambiar jugadores'),
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    label: const Text('Escanear otra sala'),
                   ),
-                ),
-              ] else if (_isGameEnd) ...[
-                Text(
-                  'La partida terminó. Escanea de nuevo el QR para unirte '
-                  'a otra sala.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                ),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: onDismiss,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.neonAmber,
-                    foregroundColor: AppColors.nightBackground,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 14,
+                ] else
+                  TextButton(
+                    onPressed: onDismiss,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textMuted,
                     ),
+                    child: const Text('Seguir'),
                   ),
-                  icon: const Icon(Icons.qr_code_scanner_rounded),
-                  label: const Text('Escanear otra sala'),
-                ),
-              ] else
-                GestureDetector(
-                  onTap: onDismiss,
-                  child: Text(
-                    'Toca para continuar',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontSize: 13,
-                          color: AppColors.textMuted,
-                        ),
-                  ),
-                ),
-            ],
-          ),
+              ],
+            ),
+          )
+              .animate()
+              .fadeIn(duration: AppMotion.normal)
+              .slideY(
+                begin: 0.04,
+                end: 0,
+                duration: AppMotion.slow,
+                curve: AppMotion.easeOut,
+              ),
         ),
       ),
     );

@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/navigation/app_page_route.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/player_colors.dart';
 import '../../../core/utils/haptic_utils.dart';
 import '../../../data/models/participant_setup.dart';
@@ -13,6 +15,7 @@ import '../../../domain/enums/live_room_connection_mode.dart';
 import '../../../domain/enums/scoring_ui_mode.dart';
 import '../../../features/live_room/live_room_manager.dart';
 import '../../bloc/game/game_bloc.dart';
+import '../../widgets/app_background.dart';
 import '../../widgets/app_logo.dart';
 import '../history/game_history_screen.dart';
 import '../stats/game_stats_screen.dart';
@@ -181,19 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList(growable: false);
   }
 
-  Widget _scoreboardForSession({required bool restore}) {
-    if (restore) {
-      final saved = widget.repository.loadCurrentSession();
-      if (saved != null && saved.isEasyMode) {
-        return const EasyScoreboardScreen();
-      }
-      return const ScoreboardScreen();
-    }
-    return _scoringUiMode == ScoringUiMode.easy
-        ? const EasyScoreboardScreen()
-        : const ScoreboardScreen();
-  }
-
   void _startGame({required bool restore}) {
     if (!restore) {
       final winScore = _parseWinScore();
@@ -215,25 +205,44 @@ class _HomeScreenState extends State<HomeScreen> {
     final bloc = context.read<GameBloc>();
 
     if (restore) {
+      final saved = widget.repository.loadCurrentSession();
+      if (saved == null) {
+        setState(() => _hasSavedGame = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No hay una partida guardada para continuar.'),
+          ),
+        );
+        return;
+      }
       bloc.add(const GameRestored());
-    } else {
-      bloc.add(GameConfigured(
-        winScore: _selectedWinScore,
-        mode: _scoringUiMode == ScoringUiMode.easy
-            ? GameMode.teamVsTeam
-            : _mode,
-        participants: _buildParticipants(),
-        connectionMode: _scoringUiMode == ScoringUiMode.easy
-            ? LiveRoomConnectionMode.offline
-            : _connectionMode,
-        scoringUiMode: _scoringUiMode,
-      ));
+      final scoreboard = saved.isEasyMode
+          ? const EasyScoreboardScreen()
+          : const ScoreboardScreen();
+      Navigator.of(context)
+          .push(AppPageRoute(page: scoreboard))
+          .then((_) => _checkSavedGame());
+      return;
     }
+
+    bloc.add(GameConfigured(
+      winScore: _selectedWinScore,
+      mode: _scoringUiMode == ScoringUiMode.easy
+          ? GameMode.teamVsTeam
+          : _mode,
+      participants: _buildParticipants(),
+      connectionMode: _scoringUiMode == ScoringUiMode.easy
+          ? LiveRoomConnectionMode.offline
+          : _connectionMode,
+      scoringUiMode: _scoringUiMode,
+    ));
 
     Navigator.of(context)
         .push(
-          MaterialPageRoute<void>(
-            builder: (_) => _scoreboardForSession(restore: restore),
+          AppPageRoute(
+            page: _scoringUiMode == ScoringUiMode.easy
+                ? const EasyScoreboardScreen()
+                : const ScoreboardScreen(),
           ),
         )
         .then((_) => _checkSavedGame());
@@ -242,8 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openSpectatorJoin() {
     HapticUtils.lightTap();
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => JoinRoomScreen(
+      AppPageRoute(
+        page: JoinRoomScreen(
           liveRoomManager: widget.liveRoomManager,
         ),
       ),
@@ -253,8 +262,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openHistory() {
     HapticUtils.lightTap();
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => GameHistoryScreen(repository: widget.repository),
+      AppPageRoute(
+        page: GameHistoryScreen(repository: widget.repository),
       ),
     );
   }
@@ -262,8 +271,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openStats() {
     HapticUtils.lightTap();
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => GameStatsScreen(repository: widget.repository),
+      AppPageRoute(
+        page: GameStatsScreen(repository: widget.repository),
       ),
     );
   }
@@ -271,9 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openTutorial() {
     HapticUtils.lightTap();
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const GuideScreen(),
-      ),
+      AppPageRoute(page: const GuideScreen()),
     );
   }
 
@@ -336,17 +343,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           AppConstants.appName,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                letterSpacing: 2,
-                color: AppColors.textSecondary,
+                letterSpacing: -0.2,
+                color: AppColors.textPrimary,
               ),
         ),
-        iconTheme: const IconThemeData(color: AppColors.neonCyan),
       ),
       drawer: _HomeDrawer(
         onHistory: _openHistory,
@@ -355,120 +362,134 @@ class _HomeScreenState extends State<HomeScreen> {
         onTutorial: _openTutorial,
         onAbout: _showAbout,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const AppLogo(showName: false, height: 120),
-              const SizedBox(height: 8),
-              Text(
-                _scoringUiMode == ScoringUiMode.easy
-                    ? 'Nueva partida'
-                    : 'Modo completo',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              if (_scoringUiMode == ScoringUiMode.easy) ...[
-                const SizedBox(height: 6),
+      body: AppBackground(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const AppLogo(showName: false, height: 104).entrance(),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Escribe los nombres y anota. Así de simple.',
+                  _scoringUiMode == ScoringUiMode.easy
+                      ? 'Nueva partida'
+                      : 'Modo completo',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textMuted,
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ).entrance(index: 1),
+                if (_scoringUiMode == ScoringUiMode.easy) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Escribe los nombres y anota. Así de simple.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                  ).entrance(index: 2),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                SoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _SectionTitle(title: 'Primero a'),
+                      const SizedBox(height: AppSpacing.sm),
+                      _WinScorePresets(
+                        selected: _selectedWinScore,
+                        onSelected: _selectPresetScore,
                       ),
-                ),
-              ],
-              const SizedBox(height: 28),
-              const _SectionTitle(title: 'Primero a'),
-              const SizedBox(height: 12),
-              _WinScorePresets(
-                selected: _selectedWinScore,
-                onSelected: _selectPresetScore,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _winScoreController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (_) {
-                  final parsed = _parseWinScore();
-                  if (parsed != null) {
-                    setState(() => _selectedWinScore = parsed);
-                  }
-                },
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Puntaje manual',
-                  hintText: 'Ej: 175',
-                  labelStyle: const TextStyle(color: AppColors.textSecondary),
-                  filled: true,
-                  fillColor: AppColors.nightCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        controller: _winScoreController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (_) {
+                          final parsed = _parseWinScore();
+                          if (parsed != null) {
+                            setState(() => _selectedWinScore = parsed);
+                          }
+                        },
+                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: const InputDecoration(
+                          labelText: 'Puntaje manual',
+                          hintText: 'Ej: 175',
+                        ),
+                      ),
+                    ],
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: AppColors.neonCyan.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
+                ).entrance(index: 3),
+                const SizedBox(height: AppSpacing.md),
               if (_scoringUiMode == ScoringUiMode.easy) ...[
-                const _SectionTitle(title: 'Nombres de equipos'),
-                const SizedBox(height: 12),
-                _NameField(
-                  label: 'Equipo A',
-                  color: AppColors.teamA,
-                  controller: _teamANameController,
-                ),
-                const SizedBox(height: 12),
-                _NameField(
-                  label: 'Equipo B',
-                  color: AppColors.teamB,
-                  controller: _teamBNameController,
-                ),
+                SoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _SectionTitle(title: 'Nombres de equipos'),
+                      const SizedBox(height: AppSpacing.sm),
+                      _NameField(
+                        label: 'Equipo A',
+                        color: AppColors.teamA,
+                        controller: _teamANameController,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _NameField(
+                        label: 'Equipo B',
+                        color: AppColors.teamB,
+                        controller: _teamBNameController,
+                      ),
+                    ],
+                  ),
+                ).entrance(index: 4),
               ] else ...[
                 TextButton.icon(
                   onPressed: () => _setScoringUiMode(ScoringUiMode.easy),
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
                   label: const Text('Volver al modo fácil'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.neonCyan,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _SectionTitle(title: 'Modo de juego'),
+                      const SizedBox(height: AppSpacing.sm),
+                      _ModeSelector(selected: _mode, onSelected: _setMode),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                const _SectionTitle(title: 'Modo de juego'),
-                const SizedBox(height: 12),
-                _ModeSelector(selected: _mode, onSelected: _setMode),
-                const SizedBox(height: 28),
+                const SizedBox(height: AppSpacing.md),
                 if (_mode == GameMode.teamVsTeam) ...[
-                  const _SectionTitle(title: 'Jugadores por equipo'),
-                  const SizedBox(height: 12),
-                  _CountSelector(
-                    count: _playersPerTeam,
-                    min: AppConstants.minPlayersPerTeam,
-                    max: AppConstants.maxPlayersPerTeam,
-                    onChanged: _setPlayersPerTeam,
+                  SoftCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _SectionTitle(title: 'Jugadores por equipo'),
+                        const SizedBox(height: AppSpacing.sm),
+                        _CountSelector(
+                          count: _playersPerTeam,
+                          min: AppConstants.minPlayersPerTeam,
+                          max: AppConstants.maxPlayersPerTeam,
+                          onChanged: _setPlayersPerTeam,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: AppSpacing.md),
                   _TeamSetupBlock(
                     title: 'Equipo A',
                     color: AppColors.teamA,
                     teamNameController: _teamANameController,
                     playerControllers: _teamAPlayerControllers,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                   _TeamSetupBlock(
                     title: 'Equipo B',
                     color: AppColors.teamB,
@@ -476,98 +497,94 @@ class _HomeScreenState extends State<HomeScreen> {
                     playerControllers: _teamBPlayerControllers,
                   ),
                 ] else ...[
-                  const _SectionTitle(title: 'Cantidad de jugadores'),
-                  const SizedBox(height: 12),
-                  _CountSelector(
-                    count: _playerCount,
-                    min: AppConstants.minIndividualPlayers,
-                    max: AppConstants.maxIndividualPlayers,
-                    onChanged: _setPlayerCount,
+                  SoftCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _SectionTitle(title: 'Cantidad de jugadores'),
+                        const SizedBox(height: AppSpacing.sm),
+                        _CountSelector(
+                          count: _playerCount,
+                          min: AppConstants.minIndividualPlayers,
+                          max: AppConstants.maxIndividualPlayers,
+                          onChanged: _setPlayerCount,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        const _SectionTitle(title: 'Nombres de jugadores'),
+                        const SizedBox(height: AppSpacing.sm),
+                        ...List.generate(_individualControllers.length, (index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            child: _NameField(
+                              label: 'Jugador ${index + 1}',
+                              color: PlayerColors.forIndex(index),
+                              controller: _individualControllers[index],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 28),
-                  const _SectionTitle(title: 'Nombres de jugadores'),
-                  const SizedBox(height: 12),
-                  ...List.generate(_individualControllers.length, (index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _NameField(
-                        label: 'Jugador ${index + 1}',
-                        color: PlayerColors.forIndex(index),
-                        controller: _individualControllers[index],
+                ],
+                const SizedBox(height: AppSpacing.md),
+                SoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _SectionTitle(title: 'Compartir marcador'),
+                      const SizedBox(height: AppSpacing.sm),
+                      _ConnectionModeSelector(
+                        selected: _connectionMode,
+                        onSelected: (mode) {
+                          if (!mode.isAvailable) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Sala en la nube — próximamente.'),
+                                backgroundColor: AppColors.neonRose,
+                              ),
+                            );
+                            return;
+                          }
+                          HapticUtils.selection();
+                          setState(() => _connectionMode = mode);
+                        },
                       ),
-                    );
-                  }),
-                ],
-                const SizedBox(height: 28),
-                const _SectionTitle(title: 'Compartir marcador'),
-                const SizedBox(height: 12),
-                _ConnectionModeSelector(
-                  selected: _connectionMode,
-                  onSelected: (mode) {
-                    if (!mode.isAvailable) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Sala en la nube — próximamente.'),
-                          backgroundColor: AppColors.neonRose,
+                      if (_connectionMode == LiveRoomConnectionMode.localWifi) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Tú anotas; los demás escanean tu QR en la misma WiFi.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      );
-                      return;
-                    }
-                    HapticUtils.selection();
-                    setState(() => _connectionMode = mode);
-                  },
-                ),
-                if (_connectionMode == LiveRoomConnectionMode.localWifi) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    'Tú anotas; los demás escanean tu QR en la misma WiFi.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMuted,
-                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
               ],
-              const SizedBox(height: 28),
+              const SizedBox(height: AppSpacing.lg),
               FilledButton(
                 onPressed: () => _startGame(restore: false),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.neonCyan,
-                  foregroundColor: AppColors.nightBackground,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
                 child: Text(
                   _scoringUiMode == ScoringUiMode.easy
                       ? 'Comenzar'
                       : 'Comenzar partida',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
-              ),
+              ).entrance(index: 5),
               if (_hasSavedGame) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 OutlinedButton(
                   onPressed: () => _startGame(restore: true),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.neonAmber,
                     side: BorderSide(
-                      color: AppColors.neonAmber.withValues(alpha: 0.5),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      color: AppColors.neonAmber.withValues(alpha: 0.45),
                     ),
                   ),
                   child: const Text('Continuar partida'),
-                ),
+                ).entrance(index: 6),
               ],
               if (_scoringUiMode == ScoringUiMode.easy) ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.md),
                 TextButton.icon(
                   onPressed: () => _setScoringUiMode(ScoringUiMode.full),
                   icon: const Icon(Icons.tune_rounded, size: 18),
@@ -575,18 +592,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.textSecondary,
                   ),
-                ),
+                ).entrance(index: 7),
                 Text(
                   'WiFi, capicúa, reloj, individual y más opciones.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                ),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ).entrance(index: 8),
               ],
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -608,11 +624,18 @@ class _TeamSetupBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        color: color.withValues(alpha: 0.07),
+        borderRadius: AppRadii.borderLg,
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -623,19 +646,19 @@ class _TeamSetupBlock extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: color,
-              letterSpacing: 1,
+              letterSpacing: 0.4,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           _NameField(
             label: 'Nombre del equipo',
             color: color,
             controller: teamNameController,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           ...List.generate(playerControllers.length, (index) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: _NameField(
                 label: 'Jugador ${index + 1}',
                 color: color,
@@ -667,20 +690,10 @@ class _NameField extends StatelessWidget {
       style: const TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: color.withValues(alpha: 0.8)),
-        filled: true,
-        fillColor: AppColors.nightCard,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-        ),
+        labelStyle: TextStyle(color: color.withValues(alpha: 0.85)),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: color.withValues(alpha: 0.6)),
+          borderRadius: AppRadii.borderMd,
+          borderSide: BorderSide(color: color.withValues(alpha: 0.55), width: 1.5),
         ),
       ),
     );
@@ -705,35 +718,30 @@ class _HomeDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: AppColors.nightBackground,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const AppLogo(showName: false, height: 64),
-                  const SizedBox(height: 14),
+                  const AppLogo(showName: false, height: 56),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     AppConstants.appName,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          letterSpacing: 2,
-                        ),
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     AppConstants.appSlogan,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMuted,
-                        ),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
-            Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
+            const Divider(height: 1),
             const SizedBox(height: 8),
             _DrawerItem(
               icon: Icons.emoji_events_outlined,
@@ -754,7 +762,7 @@ class _HomeDrawer extends StatelessWidget {
               onTap: () => _run(context, onSpectator),
             ),
             const Spacer(),
-            Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
+            const Divider(height: 1),
             _DrawerItem(
               icon: Icons.help_outline_rounded,
               color: AppColors.textSecondary,
@@ -847,18 +855,28 @@ class _ConnectionModeSelector extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onSelected(mode),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: AppMotion.normal,
+                curve: AppMotion.easeOut,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.neonCyan.withValues(alpha: 0.15)
-                      : AppColors.nightCard,
-                  borderRadius: BorderRadius.circular(14),
+                      ? AppColors.neonCyan
+                      : AppColors.nightSurface,
+                  borderRadius: AppRadii.borderMd,
                   border: Border.all(
                     color: isSelected
-                        ? AppColors.neonCyan.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.06),
+                        ? AppColors.neonCyan
+                        : Colors.white.withValues(alpha: 0.08),
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Column(
                   children: [
@@ -868,9 +886,9 @@ class _ConnectionModeSelector extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
                         color: isSelected
-                            ? AppColors.neonCyan
+                            ? AppColors.ink
                             : AppColors.textSecondary,
                       ),
                     ),
@@ -879,7 +897,9 @@ class _ConnectionModeSelector extends StatelessWidget {
                         'Pronto',
                         style: TextStyle(
                           fontSize: 9,
-                          color: AppColors.textMuted.withValues(alpha: 0.8),
+                          color: isSelected
+                              ? AppColors.ink.withValues(alpha: 0.55)
+                              : AppColors.textMuted,
                         ),
                       ),
                   ],
@@ -913,27 +933,37 @@ class _ModeSelector extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onSelected(mode),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: AppMotion.normal,
+                curve: AppMotion.easeOut,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.neonCyan.withValues(alpha: 0.15)
-                      : AppColors.nightCard,
-                  borderRadius: BorderRadius.circular(16),
+                      ? AppColors.neonCyan
+                      : AppColors.nightSurface,
+                  borderRadius: AppRadii.borderMd,
                   border: Border.all(
                     color: isSelected
-                        ? AppColors.neonCyan.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.06),
+                        ? AppColors.neonCyan
+                        : Colors.white.withValues(alpha: 0.08),
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Text(
                   mode.label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected
-                        ? AppColors.neonCyan
+                        ? AppColors.ink
                         : AppColors.textSecondary,
                   ),
                 ),
@@ -966,27 +996,37 @@ class _WinScorePresets extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onSelected(score),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: AppMotion.normal,
+                curve: AppMotion.easeOut,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.neonAmber.withValues(alpha: 0.15)
-                      : AppColors.nightCard,
-                  borderRadius: BorderRadius.circular(14),
+                      ? AppColors.neonAmber
+                      : AppColors.nightSurface,
+                  borderRadius: AppRadii.borderMd,
                   border: Border.all(
                     color: isSelected
-                        ? AppColors.neonAmber.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.06),
+                        ? AppColors.neonAmber
+                        : Colors.white.withValues(alpha: 0.08),
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.neonAmber.withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Text(
                   '$score',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
                     color: isSelected
-                        ? AppColors.neonAmber
+                        ? AppColors.ink
                         : AppColors.textSecondary,
                   ),
                 ),
@@ -1028,7 +1068,7 @@ class _CountSelector extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.nightCard,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Text(
             '$count',

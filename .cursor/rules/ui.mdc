@@ -1,25 +1,24 @@
 ---
-description: Principios de UX/UI premium para pantallas Flutter
+description: UI moderna y amigable con animaciones elegantes
 globs: "lib/presentation/**/*.dart"
 alwaysApply: false
 ---
 
-# UI
+# UI — Doble Seis
 
-Todas las interfaces deben verse modernas.
+Paleta: slate suave + menta (`#5EEAD4`) + coral (`#FB923C`).
 
-## Inspiración
+## Siempre
 
-- Apple
-- Google Material 3
-- Linear
-- Notion
+- Fondos con gradiente + luces de ambiente
+- Cards con sombra suave y borde sutil
+- Animaciones 200–350 ms, `easeOut` / `easeOutCubic`
+- Usar `.entrance(index:)` en secciones nuevas
+- `PressableScale` o `AnimatedContainer` en controles táctiles
+- Tipografía: Bricolage Grotesque + Source Sans 3
 
-## Siempre usar
+## Evitar
 
-- Mucho espacio en blanco
-- Bordes redondeados
-- Sombras suaves
-- Animaciones elegantes
-- Diseño responsive
-- Dark Mode
+- Verde fieltro fangoso / marrón madera
+- Glow excesivo o shake brusco
+- Inter / Plus Jakarta / púrpura genérico

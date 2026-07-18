@@ -4,12 +4,17 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/haptic_utils.dart';
 import '../../../data/models/game_session.dart';
 import '../../../features/ads/ads_service.dart';
 import '../../../features/ads/bottom_banner_ad.dart';
 import '../../bloc/game/game_bloc.dart';
+import '../../widgets/app_background.dart';
 import '../../widgets/celebration_overlay.dart';
+import '../../widgets/shot_clock.dart';
+
+enum _EasyExitAction { cancel, saveAndLeave, discard }
 
 /// Marcador simple estilo Kapicú: nombres, sumar ronda e historial P1, P2…
 class EasyScoreboardScreen extends StatefulWidget {
@@ -59,45 +64,59 @@ class _EasyScoreboardScreenState extends State<EasyScoreboardScreen> {
     FocusScope.of(context).unfocus();
   }
 
-  Future<void> _attemptExit(BuildContext context, {required bool inProgress}) async {
+  Future<void> _attemptExit(
+    BuildContext context, {
+    required bool inProgress,
+  }) async {
     final bloc = context.read<GameBloc>();
     final navigator = Navigator.of(context);
 
-    if (!inProgress) {
-      bloc.add(const GameReset());
-      navigator.pop();
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
+    // Sin rondas: preguntar igual (evitar salir sin querer / abrir modo completo).
+    final action = await showDialog<_EasyExitAction>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.nightSurface,
-        title: const Text('¿Terminar la partida?'),
-        content: const Text(
-          'La partida está en curso. Si sales, quedará anulada y no se '
-          'guardará en el historial ni en las estadísticas.',
+        title: Text(inProgress ? '¿Salir de la partida?' : '¿Salir?'),
+        content: Text(
+          inProgress
+              ? 'Puedes guardar y continuar después en modo fácil, '
+                  'o anular la partida.'
+              : 'Si sales ahora, puedes continuar esta partida desde el inicio.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_EasyExitAction.cancel),
             child: const Text('Seguir jugando'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text(
-              'Terminar y salir',
-              style: TextStyle(color: AppColors.neonRose),
-            ),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_EasyExitAction.saveAndLeave),
+            child: const Text('Salir y guardar'),
           ),
+          if (inProgress)
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(_EasyExitAction.discard),
+              child: const Text(
+                'Anular partida',
+                style: TextStyle(color: AppColors.neonRose),
+              ),
+            ),
         ],
       ),
     );
 
-    if (confirmed == true) {
+    if (!context.mounted) return;
+    if (action == null || action == _EasyExitAction.cancel) return;
+
+    if (action == _EasyExitAction.discard) {
       bloc.add(const GameReset());
-      navigator.pop();
+      // Dar tiempo a que Hive borre "current" antes de volver al home.
+      await Future<void>.delayed(const Duration(milliseconds: 80));
     }
+
+    if (navigator.canPop()) navigator.pop();
   }
 
   @override
@@ -110,8 +129,10 @@ class _EasyScoreboardScreenState extends State<EasyScoreboardScreen> {
         final teamA = players.isNotEmpty ? players[0] : null;
         final teamB = players.length > 1 ? players[1] : null;
         final rounds = session.easyRounds;
-        final inProgress =
-            session.events.isNotEmpty && !session.isGameOver;
+        // Hay partida en curso si ya hay rondas o algún punto.
+        final inProgress = !session.isGameOver &&
+            (session.events.isNotEmpty ||
+                session.participants.any((p) => p.score > 0));
 
         return PopScope(
           canPop: false,
@@ -120,111 +141,119 @@ class _EasyScoreboardScreenState extends State<EasyScoreboardScreen> {
             _attemptExit(context, inProgress: inProgress);
           },
           child: Scaffold(
-            backgroundColor: AppColors.nightBackground,
+            extendBodyBehindAppBar: true,
             appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              title: Text(
-                'Modo Fácil · Primero a ${session.winScore}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-              ),
+              title: Text('Modo fácil · Primero a ${session.winScore}'),
               leading: IconButton(
                 icon: const Icon(Icons.close_rounded),
                 onPressed: () =>
                     _attemptExit(context, inProgress: inProgress),
               ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Center(
+                    child: ShotClock(
+                      compact: true,
+                      seconds: state.shotClockSeconds,
+                      isActive: state.isShotClockActive,
+                      onToggle: session.isGameOver
+                          ? () {}
+                          : () => bloc.add(const ShotClockToggled()),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            body: SafeArea(
+            body: AppBackground(
+              child: SafeArea(
               child: Stack(
                 children: [
                   Column(
                     children: [
                       Expanded(
                         child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            AppSpacing.sm,
+                            AppSpacing.md,
+                            AppSpacing.md,
+                          ),
                           children: [
                             if (teamA != null && teamB != null) ...[
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _TeamHeader(
-                                      name: teamA.name,
-                                      color: AppColors.teamA,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _TeamHeader(
-                                      name: teamB.name,
-                                      color: AppColors.teamB,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _RoundPointsField(
-                                      controller: _pointsAController,
-                                      color: AppColors.teamA,
-                                      enabled: !session.isGameOver,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _RoundPointsField(
-                                      controller: _pointsBController,
-                                      color: AppColors.teamB,
-                                      enabled: !session.isGameOver,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed: session.isGameOver
-                                      ? null
-                                      : () => _addRound(
-                                            bloc,
-                                            teamA.id,
-                                            teamB.id,
+                              SoftCard(
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _TeamHeader(
+                                            name: teamA.name,
+                                            color: AppColors.teamA,
                                           ),
-                                  icon: const Icon(Icons.add_rounded),
-                                  label: const Text(
-                                    'Añadir Ronda',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
+                                        ),
+                                        const SizedBox(width: AppSpacing.sm),
+                                        Expanded(
+                                          child: _TeamHeader(
+                                            name: teamB.name,
+                                            color: AppColors.teamB,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: AppColors.nightCard,
-                                    foregroundColor: AppColors.textPrimary,
-                                    disabledBackgroundColor: AppColors.nightCard
-                                        .withValues(alpha: 0.5),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
+                                    const SizedBox(height: AppSpacing.sm),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _RoundPointsField(
+                                            controller: _pointsAController,
+                                            color: AppColors.teamA,
+                                            enabled: !session.isGameOver,
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.sm),
+                                        Expanded(
+                                          child: _RoundPointsField(
+                                            controller: _pointsBController,
+                                            color: AppColors.teamB,
+                                            enabled: !session.isGameOver,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: FilledButton.icon(
+                                        onPressed: session.isGameOver
+                                            ? null
+                                            : () => _addRound(
+                                                  bloc,
+                                                  teamA.id,
+                                                  teamB.id,
+                                                ),
+                                        icon: const Icon(Icons.add_rounded),
+                                        label: const Text('Añadir ronda'),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 20),
-                              _RoundsTable(
-                                teamA: teamA,
-                                teamB: teamB,
-                                rounds: rounds,
-                                onDeleteRound: session.isGameOver
-                                    ? null
-                                    : (roundId) =>
-                                        bloc.add(RoundRemoved(roundId)),
+                              const SizedBox(height: AppSpacing.md),
+                              AnimatedSwitcher(
+                                duration: AppMotion.normal,
+                                switchInCurve: AppMotion.easeOut,
+                                switchOutCurve: AppMotion.easeInOut,
+                                child: _RoundsTable(
+                                  key: ValueKey(rounds.length),
+                                  teamA: teamA,
+                                  teamB: teamB,
+                                  rounds: rounds,
+                                  onDeleteRound: session.isGameOver
+                                      ? null
+                                      : (roundId) =>
+                                          bloc.add(RoundRemoved(roundId)),
+                                ),
                               ),
                             ],
                           ],
@@ -261,11 +290,10 @@ class _EasyScoreboardScreenState extends State<EasyScoreboardScreen> {
                           : null,
                     )
                         .animate()
-                        .fadeIn(duration: 300.ms)
-                        .then()
-                        .shake(duration: 500.ms, hz: 2),
+                        .fadeIn(duration: AppMotion.normal),
                 ],
               ),
+            ),
             ),
           ),
         );
@@ -351,6 +379,7 @@ class _RoundPointsField extends StatelessWidget {
 
 class _RoundsTable extends StatelessWidget {
   const _RoundsTable({
+    super.key,
     required this.teamA,
     required this.teamB,
     required this.rounds,
@@ -364,13 +393,8 @@ class _RoundsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.nightSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      clipBehavior: Clip.antiAlias,
+    return SoftCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           _TableRow(
@@ -386,7 +410,7 @@ class _RoundsTable extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
               child: Text(
-                'Aún no hay rondas.\nAnota los puntos y pulsa “Añadir Ronda”.',
+                'Aún no hay rondas.\nAnota los puntos y pulsa “Añadir ronda”.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.textMuted,
@@ -405,12 +429,12 @@ class _RoundsTable extends StatelessWidget {
                 valueA: '$pointsA',
                 valueB: '$pointsB',
                 valueAColor: aWins
-                    ? const Color(0xFF3DDC97)
+                    ? AppColors.neonCyan
                     : (pointsA > 0
                         ? AppColors.neonRose
                         : AppColors.textMuted),
                 valueBColor: bWins
-                    ? const Color(0xFF3DDC97)
+                    ? AppColors.neonCyan
                     : (pointsB > 0
                         ? AppColors.neonRose
                         : AppColors.textMuted),
